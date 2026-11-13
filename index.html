@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Duo Chat</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Join screen -->
+  <section id="join" class="screen">
+    <form id="joinForm" class="card">
+      <div class="logo">💬</div>
+      <h1>Private chat</h1>
+      <p>Enter your name and the passkey you and your friend share.</p>
+      <input id="name" placeholder="Your name" maxlength="24" required autocomplete="off">
+      <input id="room" type="password" placeholder="Secret passkey" minlength="4" required autocomplete="off">
+      <button class="primary">Join room</button>
+      <div id="err" class="err"></div>
+    </form>
+  </section>
+
+  <!-- Chat screen -->
+  <section id="chat" class="screen hidden">
+    <header>
+      <div class="avatar" id="avatar">?</div>
+      <div class="who"><b id="peerName">Waiting for your friend…</b><small id="status" class="off">Offline</small></div>
+      <button id="themeBtn" title="Toggle light/dark">🌓</button>
+      <button id="clearBtn" title="Clear chat">🗑️</button>
+    </header>
+    <main id="msgs"></main>
+    <div id="replyBar" class="hidden"><div><b id="rName"></b><span id="rText"></span></div><button id="rClose">✕</button></div>
+    <div id="emojis" class="hidden"></div>
+    <footer>
+      <button id="emojiBtn" title="Emoji">😊</button>
+      <button id="imgBtn" title="Send image">📎</button>
+      <input type="file" id="file" accept="image/*" hidden>
+      <textarea id="input" rows="1" placeholder="Type a message"></textarea>
+      <button id="send" class="primary" title="Send">➤</button>
+    </footer>
+  </section>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
