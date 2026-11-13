@@ -1,4 +1,4 @@
-// server.js - Express serves /public, Socket.io relays messages between 2 people per room.
+// server.js - Express serves root directory, Socket.io relays messages between 2 people per room.
 // State is in memory: rooms vanish if the server restarts.
 const express = require('express');
 const http = require('http');
@@ -7,7 +7,7 @@ const { Server } = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { maxHttpBufferSize: 5e6 }); // allow ~5MB image payloads
-app.use(express.static('public'));
+app.use(express.static(__dirname));
 
 const rooms = {}; // passkey -> { users: { socketId: {name, cid} }, history: [] }
 const clip = (v, n) => String(v || '').slice(0, n);
