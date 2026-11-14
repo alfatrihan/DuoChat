@@ -44,7 +44,7 @@ int binarySearch(int arr[], int l, int r, int x) {
         </svg>
       </div>
       <h1>DuoChat</h1>
-      <p>Your private encrypted-feeling room for two. Share a secret passkey to begin.</p>
+      <p>Your private room for two with synced weather atmospheres. Share a secret passkey to begin.</p>
       
       <div class="input-group">
         <span class="input-icon">
@@ -73,6 +73,9 @@ int binarySearch(int arr[], int l, int r, int x) {
 
   <!-- Chat Screen -->
   <section id="chat" class="screen hidden">
+    <!-- Live Weather Canvas Overlay (Synced between both users) -->
+    <canvas id="weatherCanvas"></canvas>
+
     <header>
       <div class="avatar-wrap">
         <div class="avatar" id="avatar">?</div>
@@ -80,19 +83,36 @@ int binarySearch(int arr[], int l, int r, int x) {
       </div>
       <div class="who">
         <div class="name-row">
-          <b id="peerName">Waiting for your friend…</b>
+          <b id="peerName">Waiting…</b>
           <span id="peerMoodBadge" class="mood-badge hidden" title="Friend's mood"></span>
         </div>
         <small id="status" class="off">Offline</small>
       </div>
 
       <div class="header-actions">
+        <!-- Synced Weather Theme Selector -->
+        <div class="dropdown-wrap">
+          <button id="weatherBtn" class="icon-btn" title="Change Synced Weather Atmosphere">
+            <span id="weatherIcon">🌤️</span>
+          </button>
+          <div id="weatherMenu" class="popover-menu hidden">
+            <div class="menu-title">Synced Atmosphere</div>
+            <button data-weather="clear">☀️ Clear Sky</button>
+            <button data-weather="rain">🌧️ Cozy Rain</button>
+            <button data-weather="storm">⛈️ Thunder Storm</button>
+            <button data-weather="snow">❄️ Soft Snow</button>
+            <button data-weather="stars">🌌 Starry Night</button>
+            <button data-weather="petals">🌸 Cherry Blossom</button>
+          </div>
+        </div>
+
         <!-- Mood Selector -->
         <div class="dropdown-wrap">
           <button id="moodBtn" class="icon-btn" title="Set your mood">
             <span id="myMoodIcon">😊</span>
           </button>
           <div id="moodMenu" class="popover-menu hidden">
+            <div class="menu-title">Your Mood</div>
             <button data-mood="😊 Chilling">😊 Chilling</button>
             <button data-mood="📚 Studying">📚 Studying</button>
             <button data-mood="☕ Coffee">☕ Coffee</button>
@@ -105,28 +125,25 @@ int binarySearch(int arr[], int l, int r, int x) {
 
         <!-- Nudge / Buzz Button -->
         <button id="nudgeBtn" class="icon-btn" title="Send Nudge / Buzz">
-          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         </button>
 
         <!-- Copy Invite Link -->
         <button id="inviteBtn" class="icon-btn" title="Copy Invite Link">
-          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
         </button>
 
-        <!-- Panic Mode -->
-        <button id="panicBtn" class="icon-btn" title="Quick Hide Screen (Esc)">
-          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-        </button>
-
-        <!-- Theme Toggle -->
-        <button id="themeBtn" class="icon-btn" title="Switch Theme">
-          <svg id="themeIcon" viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-        </button>
-
-        <!-- Clear Chat -->
-        <button id="clearBtn" class="icon-btn danger" title="Clear chat for both">
-          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-        </button>
+        <!-- More Options Menu (Panic, Light/Dark, Clear) to keep mobile header super clean -->
+        <div class="dropdown-wrap">
+          <button id="moreBtn" class="icon-btn" title="More options">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+          </button>
+          <div id="moreMenu" class="popover-menu hidden">
+            <button id="themeBtn">🌓 Light / Dark Mode</button>
+            <button id="panicBtn">🙈 Quick Hide (Esc)</button>
+            <button id="clearBtn" class="danger-text">🗑️ Clear Chat</button>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -163,32 +180,27 @@ int binarySearch(int arr[], int l, int r, int x) {
 
     <!-- Footer Input Bar -->
     <footer>
-      <!-- Emoji Button -->
       <button id="emojiBtn" class="tool-btn" title="Emojis">
-        <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
       </button>
 
-      <!-- Image Attachment Button -->
       <button id="imgBtn" class="tool-btn" title="Send Photo">
-        <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
       </button>
       <input type="file" id="file" accept="image/*" hidden>
 
-      <!-- Vanish Timer Toggle Button -->
       <button id="vanishBtn" class="tool-btn" title="Toggle Vanish Message (Auto-delete 10s after seen)">
-        <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/><path d="M6.38 18.7 4 21"/><path d="M17.64 18.67 20 21"/></svg>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/><path d="M6.38 18.7 4 21"/><path d="M17.64 18.67 20 21"/></svg>
       </button>
 
-      <!-- Spoiler / Blur Toggle Button -->
       <button id="spoilerBtn" class="tool-btn" title="Toggle Spoiler Blur (Tap to reveal)">
-        <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
       </button>
 
-      <textarea id="input" rows="1" placeholder="Write a message…"></textarea>
+      <textarea id="input" rows="1" placeholder="Message…"></textarea>
 
-      <!-- Send Button -->
       <button id="send" class="primary send-btn" title="Send Message">
-        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       </button>
     </footer>
   </section>

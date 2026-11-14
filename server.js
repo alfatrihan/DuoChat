@@ -1,4 +1,4 @@
-// server.js - Enhanced DuoChat Backend (Vanish Messages, Spoiler Blur, Reactions, Moods, Nudge, Health Endpoint)
+// server.js - DuoChat v3 Backend (Synced Weather Atmosphere, Vanish Messages, Spoiler Blur, Reactions, Moods, Nudge)
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -8,13 +8,13 @@ const server = http.createServer(app);
 const io = new Server(server, { maxHttpBufferSize: 5e6 });
 app.use(express.static(__dirname));
 
-// Health check endpoint to prevent Render cold-start sleep when pinged
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', uptime: process.uptime() });
 });
 
-const rooms = {}; // passkey -> { users: { socketId: {name, cid, mood} }, history: [] }
+const rooms = {}; // passkey -> { users: { socketId: {name, cid, mood} }, history: [], weather: 'clear' }
 const clip = (v, n) => String(v || '').slice(0, n);
+const VALID_WEATHERS = ['clear', 'rain', 'storm', 'snow', 'stars', 'petals'];
 
 io.on('connection', (socket) => {
   let code = null, me = null;
@@ -24,7 +24,7 @@ io.on('connection', (socket) => {
     room = clip(room, 64).trim();
     if (!name || room.length < 4) return cb({ error: 'Enter a name and a passkey of 4+ characters.' });
 
-    const r = (rooms[room] = rooms[room] || { users: {}, history: [] });
+    const r = (rooms[room] = rooms[room] || { users: {}, history: [], weather: 'clear' });
 
     for (const id of Object.keys(r.users)) {
       if (r.users[id].cid === cid) {
@@ -45,12 +45,20 @@ io.on('connection', (socket) => {
       ok: true,
       history: r.history,
       peer: peer ? peer.name : null,
-      peerMood: peer ? peer.mood : ''
+      peerMood: peer ? peer.mood : '',
+      weather: r.weather || 'clear'
     });
 
     socket.to(room).emit('presence', { online: true, name, mood: me.mood });
     const ids = r.history.filter((m) => m.from !== cid && m.status === 'sent').map((m) => (m.status = 'delivered', m.id));
     if (ids.length) socket.to(room).emit('status', { ids, status: 'delivered' });
+  });
+
+  socket.on('weather', (w) => {
+    if (!code || !me) return;
+    const cleanW = VALID_WEATHERS.includes(w) ? w : 'clear';
+    rooms[code].weather = cleanW;
+    socket.to(code).emit('weather', { weather: cleanW, by: me.name });
   });
 
   socket.on('msg', (m, cb) => {

@@ -1,4 +1,4 @@
-// script.js - Enhanced DuoChat Client (Vanish Messages, Spoiler Blur, Reactions, Moods, Nudge, Invite Link, Panic Mode)
+// script.js - DuoChat v3 (Synced Weather Atmosphere, Vanish Messages, Spoiler Blur, Reactions, Moods, Nudge)
 const $ = (id) => document.getElementById(id);
 const socket = io();
 
@@ -12,6 +12,7 @@ let replyTo = null;
 let vanishMode = false;
 let spoilerMode = false;
 let myMood = '';
+let currentWeather = 'clear';
 const items = {}; // id -> { m, el, tick, seenSent, vanishTimer }
 
 const el = (tag, cls, text) => {
@@ -27,7 +28,7 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.remove('hidden');
   clearTimeout(t._timer);
-  t._timer = setTimeout(() => t.classList.add('hidden'), 2600);
+  t._timer = setTimeout(() => t.classList.add('hidden'), 2800);
 }
 
 /* ---------- Auto-fill Room from URL Invite Link ---------- */
@@ -43,7 +44,7 @@ $('genRoomBtn').onclick = () => {
   showToast('Generated random passkey!');
 };
 
-/* ---------- Theme ---------- */
+/* ---------- Light / Dark Base Theme ---------- */
 function setTheme(t) {
   document.documentElement.dataset.theme = t;
   try { localStorage.setItem('theme', t); } catch (e) {}
@@ -51,7 +52,181 @@ function setTheme(t) {
 let saved = null;
 try { saved = localStorage.getItem('theme'); } catch (e) {}
 setTheme(saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
-$('themeBtn').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+$('themeBtn').onclick = () => {
+  setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+  showToast('Switched Light/Dark mode');
+};
+
+/* ---------- Synced Weather Atmosphere Engine ---------- */
+const WEATHER_META = {
+  clear:  { icon: '🌤️', label: 'Clear Sky' },
+  rain:   { icon: '🌧️', label: 'Cozy Rain' },
+  storm:  { icon: '⛈️', label: 'Thunder Storm' },
+  snow:   { icon: '❄️', label: 'Soft Snow' },
+  stars:  { icon: '🌌', label: 'Starry Night' },
+  petals: { icon: '🌸', label: 'Cherry Blossom' }
+};
+
+const canvas = $('weatherCanvas');
+const ctx = canvas.getContext('2d');
+let particles = [];
+let animFrame = null;
+let lightningTimer = null;
+
+function resizeCanvas() {
+  const chatEl = $('chat');
+  canvas.width = chatEl.clientWidth || window.innerWidth;
+  canvas.height = chatEl.clientHeight || window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+
+function initParticles(type) {
+  resizeCanvas();
+  particles = [];
+  const count = type === 'rain' ? 95 : type === 'storm' ? 145 : type === 'snow' ? 75 : type === 'stars' ? 65 : type === 'petals' ? 35 : 0;
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: type === 'snow' ? Math.random() * 2.8 + 1.2 : type === 'stars' ? Math.random() * 1.8 + 0.5 : type === 'petals' ? Math.random() * 4 + 3 : Math.random() * 1.2 + 0.8,
+      len: type === 'rain' ? Math.random() * 14 + 10 : type === 'storm' ? Math.random() * 20 + 14 : 0,
+      vy: type === 'rain' ? Math.random() * 6 + 9 : type === 'storm' ? Math.random() * 9 + 13 : type === 'snow' ? Math.random() * 1.4 + 0.6 : type === 'petals' ? Math.random() * 1.5 + 0.8 : 0,
+      vx: type === 'storm' ? -2.8 : type === 'rain' ? -1.1 : type === 'snow' ? Math.random() * 0.8 - 0.4 : type === 'petals' ? Math.random() * 1.4 - 0.5 : 0,
+      alpha: Math.random() * 0.6 + 0.25,
+      phase: Math.random() * Math.PI * 2
+    });
+  }
+}
+
+function drawWeather() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (currentWeather === 'clear') return;
+
+  for (const p of particles) {
+    if (currentWeather === 'rain' || currentWeather === 'storm') {
+      ctx.strokeStyle = `rgba(174, 214, 241, ${p.alpha})`;
+      ctx.lineWidth = currentWeather === 'storm' ? 1.4 : 1.1;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x + p.vx * 1.5, p.y + p.len);
+      ctx.stroke();
+      p.x += p.vx;
+      p.y += p.vy;
+    } else if (currentWeather === 'snow') {
+      ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha + 0.2})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+      p.phase += 0.02;
+      p.x += p.vx + Math.sin(p.phase) * 0.4;
+      p.y += p.vy;
+    } else if (currentWeather === 'stars') {
+      p.phase += 0.03;
+      const twinkle = 0.3 + Math.abs(Math.sin(p.phase)) * 0.7;
+      ctx.fillStyle = `rgba(243, 232, 255, ${twinkle})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (currentWeather === 'petals') {
+      ctx.fillStyle = `rgba(251, 113, 133, ${p.alpha + 0.15})`;
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y, p.r, p.r * 0.55, p.phase, 0, Math.PI * 2);
+      ctx.fill();
+      p.phase += 0.03;
+      p.x += p.vx + Math.sin(p.phase) * 0.7;
+      p.y += p.vy;
+    }
+
+    if (p.y > canvas.height + 20) {
+      p.y = -15;
+      p.x = Math.random() * canvas.width;
+    }
+    if (p.x < -20) p.x = canvas.width + 10;
+    if (p.x > canvas.width + 20) p.x = -10;
+  }
+
+  animFrame = requestAnimationFrame(drawWeather);
+}
+
+function applyWeather(weather, announceBy) {
+  if (!WEATHER_META[weather]) weather = 'clear';
+  currentWeather = weather;
+  document.documentElement.dataset.weather = weather;
+  $('weatherIcon').textContent = WEATHER_META[weather].icon;
+
+  $('weatherMenu').querySelectorAll('button').forEach((b) => {
+    b.classList.toggle('active-opt', b.dataset.weather === weather);
+  });
+
+  if (animFrame) cancelAnimationFrame(animFrame);
+  clearInterval(lightningTimer);
+
+  if (weather === 'clear') {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  } else {
+    initParticles(weather);
+    drawWeather();
+  }
+
+  if (weather === 'storm') {
+    lightningTimer = setInterval(() => {
+      if (Math.random() > 0.45) {
+        const c = $('chat');
+        c.classList.remove('lightning-flash');
+        void c.offsetWidth;
+        c.classList.add('lightning-flash');
+      }
+    }, 4500);
+  }
+
+  if (announceBy) {
+    showToast(`${WEATHER_META[weather].icon} ${announceBy} changed weather to ${WEATHER_META[weather].label}`);
+  }
+}
+
+/* ---------- Dropdown Menu Handlers ---------- */
+function closeAllMenus() {
+  $('weatherMenu').classList.add('hidden');
+  $('moodMenu').classList.add('hidden');
+  $('moreMenu').classList.add('hidden');
+}
+document.addEventListener('click', closeAllMenus);
+
+$('weatherBtn').onclick = (e) => {
+  e.stopPropagation();
+  const isHidden = $('weatherMenu').classList.contains('hidden');
+  closeAllMenus();
+  if (isHidden) $('weatherMenu').classList.remove('hidden');
+};
+$('weatherMenu').querySelectorAll('button').forEach((btn) => {
+  btn.onclick = () => {
+    const w = btn.dataset.weather;
+    applyWeather(w, 'You');
+    socket.emit('weather', w);
+  };
+});
+
+$('moodBtn').onclick = (e) => {
+  e.stopPropagation();
+  const isHidden = $('moodMenu').classList.contains('hidden');
+  closeAllMenus();
+  if (isHidden) $('moodMenu').classList.remove('hidden');
+};
+$('moodMenu').querySelectorAll('button').forEach((btn) => {
+  btn.onclick = () => {
+    myMood = btn.dataset.mood;
+    $('myMoodIcon').textContent = myMood ? myMood.split(' ')[0] : '😊';
+    socket.emit('mood', myMood);
+    showToast(myMood ? `Mood set to ${myMood}` : 'Mood cleared');
+  };
+});
+
+$('moreBtn').onclick = (e) => {
+  e.stopPropagation();
+  const isHidden = $('moreMenu').classList.contains('hidden');
+  closeAllMenus();
+  if (isHidden) $('moreMenu').classList.remove('hidden');
+};
 
 /* ---------- Join ---------- */
 function doJoin(onDone) {
@@ -66,27 +241,29 @@ function doJoin(onDone) {
     res.history.forEach(render);
     updateHeader();
     markSeen();
-    onDone();
+    onDone(null, res.weather || 'clear');
   });
 }
 
 $('joinForm').onsubmit = (e) => {
   e.preventDefault();
   creds = { name: $('name').value.trim(), room: $('room').value.trim(), cid };
-  doJoin((err) => {
+  doJoin((err, roomWeather) => {
     if (err) { creds = null; $('err').textContent = err; return; }
     $('join').classList.add('hidden');
     $('chat').classList.remove('hidden');
+    resizeCanvas();
+    applyWeather(roomWeather, null);
     $('input').focus();
   });
 };
 
-socket.on('connect', () => { if (creds) doJoin(() => {}); });
+socket.on('connect', () => { if (creds) doJoin((err, w) => { if (!err && w) applyWeather(w, null); }); });
 socket.on('disconnect', () => { peerOnline = false; peerTyping = false; updateHeader(true); });
 
-/* ---------- Header / Presence / Mood ---------- */
+/* ---------- Header / Presence / Mood / Synced Weather ---------- */
 function updateHeader(reconnecting) {
-  $('peerName').textContent = peerName || 'Waiting for your friend…';
+  $('peerName').textContent = peerName || 'Waiting for friend…';
   $('avatar').textContent = (peerName || '?')[0].toUpperCase();
   const s = $('status');
   s.textContent = reconnecting ? 'Reconnecting…' : peerTyping ? 'typing…' : peerOnline ? 'Online' : 'Offline';
@@ -115,20 +292,8 @@ socket.on('presence', ({ online, name, mood }) => {
 });
 socket.on('typing', (v) => { peerTyping = v; updateHeader(); });
 socket.on('mood', (mood) => updatePeerMood(mood));
-
-/* ---------- Mood Selector ---------- */
-$('moodBtn').onclick = (e) => {
-  e.stopPropagation();
-  $('moodMenu').classList.toggle('hidden');
-};
-document.addEventListener('click', () => $('moodMenu').classList.add('hidden'));
-$('moodMenu').querySelectorAll('button').forEach((btn) => {
-  btn.onclick = () => {
-    myMood = btn.dataset.mood;
-    $('myMoodIcon').textContent = myMood ? myMood.split(' ')[0] : '😊';
-    socket.emit('mood', myMood);
-    showToast(myMood ? `Mood set to ${myMood}` : 'Mood cleared');
-  };
+socket.on('weather', ({ weather, by }) => {
+  applyWeather(weather, by || peerName || 'Your friend');
 });
 
 /* ---------- Nudge / Buzz ---------- */
@@ -154,9 +319,9 @@ $('inviteBtn').onclick = () => {
   if (!creds) return;
   const link = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(creds.room)}`;
   navigator.clipboard.writeText(link).then(() => {
-    showToast('🔗 Invite link copied to clipboard!');
+    showToast('🔗 Invite link copied!');
   }).catch(() => {
-    showToast(`Room Passkey: ${creds.room}`);
+    showToast(`Passkey: ${creds.room}`);
   });
 };
 
@@ -204,7 +369,7 @@ function startVanishCountdown(id) {
       it.el.remove();
       delete items[id];
     }, 500);
-  }, 10000); // Vanishes 10 seconds after being seen
+  }, 10000);
 }
 
 function openImage(src) {
@@ -221,7 +386,6 @@ function render(m) {
   const d = el('div', 'm ' + (mine ? 'me' : 'them') + (m.spoiler ? ' spoiler' : '') + (m.reaction ? ' has-react' : ''));
   d.dataset.id = m.id;
 
-  // Quick hover reaction bar
   const rBar = el('div', 'react-bar');
   ['❤️', '😂', '👍', '😮', '😢', '🔥'].forEach((emo) => {
     const rb = el('button', '', emo);
@@ -327,7 +491,7 @@ function send(image) {
   };
   render({ ...m, from: cid, name: creds.name, time: Date.now(), status: 'sending' });
   socket.emit('msg', m, (status) => setStatus(m.id, status));
-  if (!image) { input.value = ''; input.style.height = 'auto'; }
+  if (!image) { input.value = ''; input.style.height = '40px'; }
   setReply(null);
   stopTyping();
 }
@@ -337,8 +501,8 @@ $('input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); }
 });
 $('input').addEventListener('input', (e) => {
-  e.target.style.height = 'auto';
-  e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+  e.target.style.height = '40px';
+  e.target.style.height = Math.min(e.target.scrollHeight, 110) + 'px';
   socket.emit('typing', true);
   clearTimeout(typingTimer);
   typingTimer = setTimeout(stopTyping, 1500);
