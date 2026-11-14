@@ -42,7 +42,7 @@
       <!-- Quick Room Sub-options (Create Room / Join Room) -->
       <div id="roomModeFields" class="room-subpanel hidden">
         <div class="subpanel-caption">
-          <span class="subpanel-branch">↳</span>
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
           <span>Room Option</span>
         </div>
         <div class="segmented-subtabs" role="tablist" aria-label="Room action">
@@ -75,7 +75,7 @@
         </div>
       </div>
 
-      <!-- Shared Profile Name & Avatar Selection (Used by Create Account, Create Room & Join Room) -->
+      <!-- Shared Profile Name & Avatar Selection -->
       <div id="profileSetupFields" class="hidden">
         <input id="accountName" placeholder="Display name" maxlength="24" autocomplete="nickname">
         <div class="auth-tabs">
@@ -92,7 +92,7 @@
       </button>
       <div id="authError" class="err" role="alert"></div>
 
-      <!-- Facebook-style bottom Create Account / Sign In switch (Hidden in Chat Room mode) -->
+      <!-- Create Account / Sign In switch (Hidden in Chat Room mode) -->
       <div id="authSwitchFooter" class="auth-switch-footer">
         <div class="auth-divider"><span>or</span></div>
         <p id="authSwitchPrompt" class="auth-switch-text">Don't have an account?</p>
@@ -115,7 +115,7 @@
         <div class="modal-head dev-modal-head">
           <div>
             <span class="eyebrow">ABOUT THE CREATOR</span>
-            <h2 id="devModalTitle">Developer Information <span>✦</span></h2>
+            <h2 id="devModalTitle">Developer Information</h2>
           </div>
           <button type="button" class="close-modal" data-close="devModal" aria-label="Close">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -190,13 +190,34 @@
               </button>
               <div id="moodMenu" class="popover-menu hidden">
                 <div class="menu-title">Aura &amp; Mood Ring</div>
-                <button data-mood="😊 Chilling" data-aura="chill">😊 Chilling</button>
-                <button data-mood="📚 Studying" data-aura="focus">📚 Studying</button>
-                <button data-mood="☕ Coffee" data-aura="cozy">☕ Coffee</button>
-                <button data-mood="🎧 Vibing" data-aura="vibe">🎧 Vibing</button>
-                <button data-mood="🤲 Dua & Peace" data-aura="peace">🤲 Dua &amp; Peace</button>
-                <button data-mood="🔥 Busy" data-aura="fire">🔥 Busy</button>
-                <button data-mood="💖 Affectionate" data-aura="love">💖 Affectionate</button>
+                <button data-mood="Chilling" data-aura="chill">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/></svg>
+                  <span>Chilling</span>
+                </button>
+                <button data-mood="Studying" data-aura="focus">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                  <span>Studying</span>
+                </button>
+                <button data-mood="Coffee" data-aura="cozy">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+                  <span>Coffee</span>
+                </button>
+                <button data-mood="Vibing" data-aura="vibe">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+                  <span>Vibing</span>
+                </button>
+                <button data-mood="Dua & Peace" data-aura="peace">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                  <span>Dua &amp; Peace</span>
+                </button>
+                <button data-mood="Busy" data-aura="fire">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                  <span>Busy</span>
+                </button>
+                <button data-mood="Affectionate" data-aura="love">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                  <span>Affectionate</span>
+                </button>
                 <button data-mood="" data-aura="">
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                   <span>Clear Aura</span>
@@ -309,48 +330,57 @@
               <small id="status" class="off">Offline</small>
             </div>
 
-            <div class="header-actions">
-              <!-- Live Heartbeat Tap Button (Click or Long-Press) -->
+            <!-- Compact Header Action Cluster (Heartbeat + Weather + More) -->
+            <div class="header-actions compact-actions">
               <button id="heartbeatBtn" class="icon-btn heartbeat-trigger" title="Hold or tap to send Live Heartbeat pulse" aria-label="Send Heartbeat">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
               </button>
 
               <!-- Synced Weather Theme Selector -->
               <div class="dropdown-wrap">
                 <button id="weatherBtn" class="icon-btn" title="Change Synced Weather Atmosphere">
                   <span id="weatherIcon" class="icon-svg-wrap">
-                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+                    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
                   </span>
                 </button>
                 <div id="weatherMenu" class="popover-menu hidden">
                   <div class="menu-title">Synced Atmosphere</div>
-                  <button data-weather="clear">☀️ Clear Sky</button>
-                  <button data-weather="rain">🌧️ Cozy Rain</button>
-                  <button data-weather="storm">⛈️ Thunder Storm</button>
-                  <button data-weather="snow">❄️ Soft Snow</button>
-                  <button data-weather="stars">🌌 Starry Night</button>
-                  <button data-weather="petals">🌸 Cherry Blossom</button>
+                  <button data-weather="clear">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2"/></svg>
+                    <span>Clear Sky</span>
+                  </button>
+                  <button data-weather="rain">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M16 14v6M8 14v6M12 16v6"/></svg>
+                    <span>Cozy Rain</span>
+                  </button>
+                  <button data-weather="storm">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 16.326A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 .5 8.973"/><path d="m13 12-3 5h4l-3 5"/></svg>
+                    <span>Thunder Storm</span>
+                  </button>
+                  <button data-weather="snow">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/><path d="m20 16-4-4 4-4M4 8l4 4-4 4"/></svg>
+                    <span>Soft Snow</span>
+                  </button>
+                  <button data-weather="stars">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                    <span>Starry Night</span>
+                  </button>
+                  <button data-weather="petals">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 16.5A4.5 4.5 0 1 1 7.5 12 4.5 4.5 0 1 1 12 7.5a4.5 4.5 0 1 1 4.5 4.5 4.5 4.5 0 1 1-4.5 4.5"/></svg>
+                    <span>Cherry Blossom</span>
+                  </button>
                 </div>
               </div>
-
-              <!-- Nudge / Buzz Button -->
-              <button id="nudgeBtn" class="icon-btn" title="Send Nudge / Buzz">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-              </button>
 
               <!-- More Options Menu -->
               <div class="dropdown-wrap">
                 <button id="moreBtn" class="icon-btn" title="More options">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
                 </button>
                 <div id="moreMenu" class="popover-menu hidden">
                   <button id="roomMoodBtn">
                     <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
                     <span>Set Aura / Mood</span>
-                  </button>
-                  <button id="soundToggleBtn">
-                    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-                    <span id="soundToggleLabel">Key &amp; Send Sound: ON</span>
                   </button>
                   <button id="themeBtn">
                     <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -397,22 +427,30 @@
 
           <!-- Active Modes Indicator Strip -->
           <div id="modeStrip" class="mode-strip hidden">
-            <span id="vanishTag" class="mode-pill hidden">⏱️ Vanish: 10s after seen</span>
-            <span id="spoilerTag" class="mode-pill hidden">👁️‍🗨️ Spoiler Blur ON</span>
+            <span id="vanishTag" class="mode-pill hidden">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/></svg>
+              <span>Vanish: 10s after seen</span>
+            </span>
+            <span id="spoilerTag" class="mode-pill hidden">
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <span>Spoiler Blur ON</span>
+            </span>
           </div>
 
-          <!-- Voice Note Recording & Voice Morphing Bar -->
+          <!-- Voice Note Recording & Voice Morphing Bar (Normal, Female, Old, Baby) -->
           <div id="voiceRecBar" class="voice-rec-bar hidden">
             <div class="voice-rec-status">
               <span class="rec-dot"></span>
               <span>Rec <b id="voiceRecTimer">0:00</b></span>
-              <select id="voiceMorphSelect" class="voice-morph-select" title="Voice Morphing Filter" aria-label="Voice Morphing Filter">
-                <option value="normal">🎙️ Normal</option>
-                <option value="chipmunk">🐿️ Helium</option>
-                <option value="deep">🦍 Deep Bass</option>
-                <option value="robot">🤖 Echo Bot</option>
-                <option value="radio">📻 Vintage</option>
-              </select>
+              <div class="voice-select-wrap">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+                <select id="voiceMorphSelect" class="voice-morph-select" title="Voice Filter" aria-label="Voice Filter">
+                  <option value="normal">Normal</option>
+                  <option value="female">Female Voice</option>
+                  <option value="old">Old Voice</option>
+                  <option value="baby">Baby Voice</option>
+                </select>
+              </div>
             </div>
             <div class="voice-rec-actions">
               <button type="button" id="cancelVoiceBtn" class="mini-pill-btn decline icon-only-pill" title="Cancel recording" aria-label="Cancel recording">
@@ -424,54 +462,50 @@
             </div>
           </div>
 
-          <!-- Footer Input Bar -->
+          <!-- Footer Input Bar (Optimized for Mobile & Desktop) -->
           <footer>
-            <button id="gamesBtn" class="tool-btn" title="Play DuoPlay Games, Polls & Quizzes">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="15" y1="13" x2="15.01" y2="13"/><line x1="18" y1="11" x2="18.01" y2="11"/><rect x="2" y="6" width="20" height="12" rx="4"/></svg>
-            </button>
-
-            <button id="pollQuickBtn" class="tool-btn" title="Create Quick Duo Poll">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            <button id="gamesBtn" class="tool-btn" title="Play DuoPlay Mini-Games">
+              <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="15" y1="13" x2="15.01" y2="13"/><line x1="18" y1="11" x2="18.01" y2="11"/><rect x="2" y="6" width="20" height="12" rx="4"/></svg>
             </button>
 
             <button id="emojiBtn" class="tool-btn" title="Emojis">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+              <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
             </button>
 
             <button id="imgBtn" class="tool-btn" title="Send Photo">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
             </button>
             <input type="file" id="file" accept="image/*" hidden>
 
             <button id="vanishBtn" class="tool-btn" title="Toggle Vanish Message (Auto-delete 10s after seen)">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/><path d="M6.38 18.7 4 21"/><path d="M17.64 18.67 20 21"/></svg>
+              <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/></svg>
             </button>
 
             <button id="spoilerBtn" class="tool-btn" title="Toggle Spoiler Blur (Tap to reveal)">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
 
             <textarea id="input" rows="1" placeholder="Message…"></textarea>
 
-            <button type="button" id="voiceBtn" class="tool-btn" title="Send Voice Message with Morphing">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+            <button type="button" id="voiceBtn" class="tool-btn" title="Send Voice Message">
+              <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
             </button>
 
             <button id="send" class="primary send-btn" title="Send Message" aria-label="Send Message">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             </button>
           </footer>
         </div>
       </div>
     </div>
 
-    <!-- DuoPlay Modal: Tic-Tac-Toe, RPS, Connect Four, Secret Passcode Vault, Duo Mini-Quiz & Quick Poll -->
+    <!-- DuoPlay Modal: Original 3 Games with Clean Theme SVG Symbols -->
     <div id="gamesModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="gamesTitle">
       <div class="modal-card games-card">
         <div class="modal-head">
           <div>
-            <span class="eyebrow">DUOPLAY · TWO PLAYER ARCADE &amp; INTERACTIVE</span>
-            <h2 id="gamesTitle">Play &amp; Decide together <span>✦</span></h2>
+            <span class="eyebrow">DUOPLAY · TWO PLAYER ARCADE</span>
+            <h2 id="gamesTitle">Play together</h2>
           </div>
           <button class="close-modal" data-close="gamesModal" aria-label="Close">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -480,51 +514,39 @@
 
         <div id="gamePickerGrid" class="game-grid">
           <button class="game-tile tic-tile" data-game="tictactoe">
-            <span class="game-symbol">✕ ○</span>
+            <span class="game-symbol">
+              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="4" x2="10" y2="10"/><line x1="10" y1="4" x2="4" y2="10"/><circle cx="17" cy="17" r="3.5"/><line x1="12" y1="3" x2="12" y2="21" opacity="0.35"/><line x1="3" y1="12" x2="21" y2="12" opacity="0.35"/></svg>
+            </span>
             <b>Tic-Tac-Toe</b>
             <small>Quick 3×3 classic with live score tracking.</small>
-            <span class="tile-cta">Play ↗</span>
+            <span class="tile-cta">
+              <span>Play</span>
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+            </span>
           </button>
 
           <button class="game-tile rps-tile" data-game="rps">
-            <span class="game-symbol">✊ ✋ ✌</span>
+            <span class="game-symbol">
+              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
+            </span>
             <b>Rock Paper Scissors</b>
             <small>Best of three showdown. First to 2 wins.</small>
-            <span class="tile-cta">Play ↗</span>
+            <span class="tile-cta">
+              <span>Play</span>
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+            </span>
           </button>
 
           <button class="game-tile c4-tile" data-game="connect4">
-            <span class="game-symbol">● ●</span>
+            <span class="game-symbol">
+              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="8" r="3" fill="currentColor" fill-opacity="0.25"/><circle cx="17" cy="8" r="3"/><circle cx="7" cy="17" r="3"/><circle cx="17" cy="17" r="3" fill="currentColor" fill-opacity="0.25"/></svg>
+            </span>
             <b>Connect Four</b>
             <small>Drop discs and line up four in a row.</small>
-            <span class="tile-cta">Play ↗</span>
-          </button>
-
-          <button class="game-tile vault-tile" data-game="secretvault">
-            <span class="game-symbol">
-              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <span class="tile-cta">
+              <span>Play</span>
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
             </span>
-            <b>Secret Passcode</b>
-            <small>Lock a secret note with a 4-digit PIN &amp; clue for your partner.</small>
-            <span class="tile-cta">Create ↗</span>
-          </button>
-
-          <button class="game-tile quiz-tile" data-game="duoquiz">
-            <span class="game-symbol">
-              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-            </span>
-            <b>Duo Mini-Quiz</b>
-            <small>Create an instant custom trivia question to test your partner.</small>
-            <span class="tile-cta">Start ↗</span>
-          </button>
-
-          <button class="game-tile poll-tile" data-game="duopoll">
-            <span class="game-symbol">
-              <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-            </span>
-            <b>Quick Duo Poll</b>
-            <small>Drop a live decision poll directly inside the chat stream.</small>
-            <span class="tile-cta">Create ↗</span>
           </button>
         </div>
 
@@ -539,7 +561,7 @@
         <div class="modal-head">
           <div>
             <span class="eyebrow">MAKE IT YOUR SPACE</span>
-            <h2 id="themesTitle">Choose your vibe <span>✦</span></h2>
+            <h2 id="themesTitle">Choose your vibe</h2>
           </div>
           <button class="close-modal" data-close="themesModal" aria-label="Close">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>

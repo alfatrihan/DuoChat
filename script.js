@@ -1,661 +1,707 @@
-// script.js - DuoChat v5 (Multi-Inbox Messenger, Friend Requests, Islamic & Modest Flat Vector Avatars, Real-time Mini-Games)
-const $ = (id) => document.getElementById(id);
-const socket = io();
+const $ = id => document.getElementById(id);
+const socket = io({ autoConnect: false });
 
-const rnd = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
-let cid = '';
-let accountToken = sessionStorage.getItem('accountToken') || '';
-let currentAccount = null;
-
-let inboxData = { friends: [], incoming: [], outgoing: [] };
-let activePeer = null;   // { id, username, name, gender, avatar, online, mood }
-let activeRoomKey = '';
-let replyTo = null;
-let vanishMode = false;
-let spoilerMode = false;
-let myMood = '';
-let currentWeather = 'clear';
-let activeGame = null;
-let gameState = null;
-
-const items = {}; // id -> { m, el, tick, seenSent, vanishTimer }
-
-/* ---------- Minimalist Flat Vector Avatars (Original Brothers + Updated Modest Sisters Portraits) ---------- */
-const AVATAR_NAMES = {
-  male: [
-    'Kufi & Panjabi',
-    'Navy Bisht',
-    'Olive & Keffiyeh',
-    'Sage Amamah',
-    'Red Ghutra & Agal',
-    'Smart Blazer',
-    'Overshirt & Shades',
-    'Minimalist Hoodie'
-  ],
-  female: [
-    'Rust Hijab & Shades',
-    'Dusty Rose & Blazer',
-    'Emerald Pleated',
-    'Onyx Black Niqab',
-    'Navy Hijab & Shades',
-    'Lavender & Glasses',
-    'Caramel & Shades',
-    'Maroon Velvet Hijab'
-  ]
+const state = {
+  token: sessionStorage.getItem('dc_token') || '',
+  mode: 'login',
+  roomSubMode: 'create',
+  generatedRoomCode: '',
+  isRoomSession: false,
+  activeRoomCode: '',
+  user: null,
+  avatar: 'brother-1',
+  avatarGroup: 'male',
+  friends: [],
+  requests: [],
+  activeFriend: null,
+  messages: [],
+  replyTo: null,
+  vanish: false,
+  spoiler: false,
+  typingTimer: null,
+  activeGame: null,
+  weather: 'clear',
+  myMood: '',
+  myAura: '',
+  voiceRecorder: null,
+  voiceStream: null,
+  voiceChunks: [],
+  voiceSeconds: 0,
+  voiceTimer: null,
+  hbHoldTimer: null,
+  hbActive: false
 };
 
-function avatarArt(gender, variant = 0) {
-  if (!gender) {
-    return `<svg viewBox="0 0 100 100" aria-hidden="true">
-      <circle cx="50" cy="50" r="50" fill="#e2e8f0"/>
-      <circle cx="50" cy="39" r="15" fill="#94a3b8"/>
-      <path d="M22 100V80a28 28 0 0 1 56 0v20" fill="#94a3b8"/>
+// Clean SVG Symbol Maps (Zero emojis in UI controls, moods, weather, or games)
+const MOOD_ICONS = {
+  'Chilling': '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/></svg>',
+  'Studying': '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>',
+  'Coffee': '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/></svg>',
+  'Vibing': '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>',
+  'Dua & Peace': '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>',
+  'Busy': '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
+  'Affectionate': '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>'
+};
+
+const WEATHER_ICONS = {
+  clear: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2m-13.66 5.66-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>',
+  rain: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M16 14v6M8 14v6M12 16v6"/></svg>',
+  storm: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 16.326A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 .5 8.973"/><path d="m13 12-3 5h4l-3 5"/></svg>',
+  snow: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/><path d="m20 16-4-4 4-4M4 8l4 4-4 4"/></svg>',
+  stars: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>',
+  petals: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 16.5A4.5 4.5 0 1 1 7.5 12 4.5 4.5 0 1 1 12 7.5a4.5 4.5 0 1 1 4.5 4.5 4.5 4.5 0 1 1-4.5 4.5"/></svg>'
+};
+
+const GAME_SVGS = {
+  tictactoe: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="4" x2="10" y2="10"/><line x1="10" y1="4" x2="4" y2="10"/><circle cx="17" cy="17" r="3.5"/><line x1="12" y1="3" x2="12" y2="21" opacity="0.35"/><line x1="3" y1="12" x2="21" y2="12" opacity="0.35"/></svg>',
+  rps: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>',
+  connect4: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="8" r="3" fill="currentColor" fill-opacity="0.25"/><circle cx="17" cy="8" r="3"/><circle cx="7" cy="17" r="3"/><circle cx="17" cy="17" r="3" fill="currentColor" fill-opacity="0.25"/></svg>'
+};
+
+const RPS_SVGS = {
+  rock: '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>',
+  paper: '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/><line x1="8" y1="2" x2="8" y2="5"/><line x1="12" y1="1" x2="12" y2="4"/></svg>',
+  scissors: '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>'
+};
+
+const AVATARS = {
+  'brother-1': { group: 'male', label: 'Brother 1', bg: ['#1d4ed8', '#38bdf8'], skin: '#f1c27d', hair: '#1e293b', beard: true, kufi: '#f8fafc', shirt: '#0f172a' },
+  'brother-2': { group: 'male', label: 'Brother 2', bg: ['#0f766e', '#2dd4bf'], skin: '#d99b66', hair: '#0f172a', beard: true, kufi: '#e2e8f0', shirt: '#134e4a' },
+  'brother-3': { group: 'male', label: 'Brother 3', bg: ['#4338ca', '#818cf8'], skin: '#f6d2a2', hair: '#334155', beard: false, kufi: '', shirt: '#1e1b4b' },
+  'brother-4': { group: 'male', label: 'Brother 4', bg: ['#0369a1', '#7dd3fc'], skin: '#c68642', hair: '#111827', beard: true, kufi: '#fef3c7', shirt: '#1e293b' },
+  'sister-1': { group: 'female', label: 'Sister 1', bg: ['#be185d', '#f472b6'], skin: '#f7d5b1', hijab: '#fdf2f8', hijabTrim: '#f9a8d4', shirt: '#831843' },
+  'sister-2': { group: 'female', label: 'Sister 2', bg: ['#6d28d9', '#c084fc'], skin: '#e8b48a', hijab: '#ede9fe', hijabTrim: '#c4b5fd', shirt: '#4c1d95' },
+  'sister-3': { group: 'female', label: 'Sister 3', bg: ['#0f766e', '#5eead4'], skin: '#f3c697', hijab: '#ecfeff', hijabTrim: '#99f6e4', shirt: '#115e59' },
+  'sister-4': { group: 'female', label: 'Sister 4', bg: ['#b45309', '#fbbf24'], skin: '#d59663', hijab: '#fffbeb', hijabTrim: '#fde68a', shirt: '#78350f' }
+};
+
+const EMOJIS = [
+  '❤️','🥰','😍','😘','🥺','😭','😂','🤣','😊','😉','😎','🥳','🤗','🤔','😴','😡',
+  '👍','👏','🙌','🤝','🙏','🫶','✌️','🤞','💪','🎉','✨','💫','🔥','💯','🌹','🌸',
+  '☕','🍕','🍔','🍟','🍫','🍰','🍓','🍉','🌙','⭐','🌈','☀️','🌧️','🎵','🎮','🏆'
+];
+
+const REACTS = ['❤️','😂','😮','😢','👍','😡'];
+
+const escapeHtml = s => String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+
+function avatarSvg(id) {
+  const a = AVATARS[id] || AVATARS['brother-1'];
+  const uid = `${id}-${Math.random().toString(36).slice(2, 6)}`;
+  if (a.group === 'female') {
+    return `<svg viewBox="0 0 80 80" aria-label="${a.label}">
+      <defs><linearGradient id="g-${uid}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${a.bg[0]}"/><stop offset="100%" stop-color="${a.bg[1]}"/></linearGradient></defs>
+      <rect width="80" height="80" rx="22" fill="url(#g-${uid})"/>
+      <path d="M16 74c2-16 12-23 24-23s22 7 24 23" fill="${a.shirt}"/>
+      <path d="M21 39c0-14 8-23 19-23s19 9 19 23c0 13-5 24-19 27-14-3-19-14-19-27Z" fill="${a.hijab}" stroke="${a.hijabTrim}" stroke-width="2"/>
+      <ellipse cx="40" cy="40" rx="12.5" ry="14.5" fill="${a.skin}"/>
+      <path d="M27.5 36c3-7 22-7 25 0-3-10-22-10-25 0Z" fill="${a.hijabTrim}"/>
+      <circle cx="35.5" cy="39" r="1.6" fill="#1e293b"/><circle cx="44.5" cy="39" r="1.6" fill="#1e293b"/>
+      <path d="M36.5 45.5c2.2 2 4.8 2 7 0" stroke="#9f1239" stroke-width="1.8" stroke-linecap="round" fill="none"/>
     </svg>`;
   }
+  return `<svg viewBox="0 0 80 80" aria-label="${a.label}">
+    <defs><linearGradient id="g-${uid}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${a.bg[0]}"/><stop offset="100%" stop-color="${a.bg[1]}"/></linearGradient></defs>
+    <rect width="80" height="80" rx="22" fill="url(#g-${uid})"/>
+    <path d="M16 74c3-15 12-21 24-21s21 6 24 21" fill="${a.shirt}"/>
+    <rect x="35" y="48" width="10" height="9" rx="4" fill="${a.skin}"/>
+    <ellipse cx="40" cy="38" rx="13" ry="15" fill="${a.skin}"/>
+    <path d="M27 34c0-9 6-14 13-14s13 5 13 14c-3-4-23-4-26 0Z" fill="${a.hair}"/>
+    ${a.kufi ? `<path d="M28 28c2-7 22-7 24 0v3H28v-3Z" fill="${a.kufi}"/>` : ''}
+    ${a.beard ? `<path d="M28 40c1 10 6 14 12 14s11-4 12-14c-3 4-6 5-12 5s-9-1-12-5Z" fill="${a.hair}" opacity=".9"/>` : ''}
+    <circle cx="35.5" cy="37.5" r="1.6" fill="#1e293b"/><circle cx="44.5" cy="37.5" r="1.6" fill="#1e293b"/>
+    <path d="M36.5 44c2.2 1.8 4.8 1.8 7 0" stroke="#7c2d12" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+  </svg>`;
+}
 
-  const n = Math.max(0, Math.min(7, Number(variant) || 0));
-  const female = gender === 'female';
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  state.generatedRoomCode = code;
+  if ($('generatedRoomCode')) $('generatedRoomCode').textContent = code;
+}
 
-  if (female) {
-    // Soft muted circular backgrounds & outfits matching F1 - F8
-    const styles = [
-      { bg: '#c98878', hijab: '#a6543a', shade: '#803d28', inner: '#f4e6dc', outfit: '#282b32', lapel: '#1d1f24', skin: '#e8be9e', glasses: 'round', brooch: false },
-      { bg: '#c7a4aa', hijab: '#b37682', shade: '#8f5863', inner: '#f5e7ea', outfit: '#9c8a78', lapel: '#7a6a5b', skin: '#e4b796', glasses: 'none', brooch: false },
-      { bg: '#95b8a8', hijab: '#1f6951', shade: '#144d3b', inner: '#d9ece5', outfit: '#13382c', lapel: '#2a8266', skin: '#ecc5a7', glasses: 'none', brooch: '#d4af37' },
-      { bg: '#a3a8b5', hijab: '#181a20', shade: '#0f1014', inner: '#2a2d36', outfit: '#111216', lapel: '#252830', skin: '#e2b492', glasses: 'niqab', brooch: false },
-      { bg: '#9ba8c4', hijab: '#1e3052', shade: '#14213b', inner: '#dce4f2', outfit: '#172540', lapel: '#2f4570', skin: '#e6bc9c', glasses: 'white-round', brooch: '#f1f5f9' },
-      { bg: '#bfb4cf', hijab: '#9682b0', shade: '#786491', inner: '#eee8f5', outfit: '#5e4f73', lapel: '#493c59', skin: '#e8be9e', glasses: 'wire', brooch: false },
-      { bg: '#c7b299', hijab: '#9c6b41', shade: '#7a512e', inner: '#f2e6da', outfit: '#cbb49c', lapel: '#a89078', skin: '#e5b896', glasses: 'dark-cat', brooch: '#f8fafc' },
-      { bg: '#ba8c92', hijab: '#6b2332', shade: '#4f1722', inner: '#edd8dc', outfit: '#3b111a', lapel: '#853042', skin: '#dfa984', glasses: 'none', brooch: '#eab308' }
-    ][n];
+function toast(text) {
+  const el = $('toast');
+  el.textContent = text;
+  el.classList.remove('hidden');
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => el.classList.add('hidden'), 2600);
+}
 
-    let svg = `<svg viewBox="0 0 100 100" aria-hidden="true">
-      <circle cx="50" cy="50" r="50" fill="${styles.bg}"/>
-      <path d="M15 100C17 75 30 67 50 67s33 8 35 33Z" fill="${styles.outfit}"/>`;
-
-    if (n === 1 || n === 6) {
-      svg += `<path d="M35 68l15 24 15-24" fill="#f5efe8"/>
-              <path d="M34 68l10 22-8 4-6-22Zm32 0l-10 22 8 4 6-22Z" fill="${styles.lapel}"/>`;
-    }
-
-    svg += `
-      <path d="M25 44c0-18 10-30 25-30s25 12 25 30c0 15-5 28-18 33l-14 2c-13-5-18-18-18-35Z" fill="${styles.hijab}"/>
-      <path d="M36 37c0-8 6-13 14-13s14 5 14 13c-3.5-3.5-8-5-14-5s-10.5 1.5-14 5Z" fill="${styles.inner}"/>
-      <rect x="37" y="27" width="26" height="33" rx="13" fill="${styles.skin}"/>
-      <path d="M35 36c0-9 6.5-14.5 15-14.5s15 5.5 15 14.5c-3.5-4.5-8.5-6.5-15-6.5s-11.5 2-15 6.5Z" fill="${styles.shade}"/>
-      <path d="M27 52c4 14 17 21 38 19-4 8-13 13-22 13-11 0-18-9-16-32Z" fill="${styles.hijab}"/>
-      <path d="M30 58c7 11 19 16 34 14" fill="none" stroke="${styles.shade}" stroke-width="1.8" stroke-linecap="round" opacity="0.65"/>
-      <path d="M28 66l-3 24h10l2-19Z" fill="${styles.shade}"/>`;
-
-    if (styles.glasses === 'niqab') {
-      svg += `<path d="M36.5 42h27v6c0 7.5-6 12.5-13.5 12.5S36.5 55.5 36.5 48Z" fill="${styles.hijab}"/>
-              <path d="M36.5 42h27" stroke="#3c404d" stroke-width="1.6"/>`;
-    } else if (styles.glasses === 'round') {
-      svg += `<g stroke="#2b1e19" stroke-width="1.8" fill="rgba(40,28,22,0.58)">
-                <circle cx="43.5" cy="41" r="4.8"/>
-                <circle cx="56.5" cy="41" r="4.8"/>
-                <line x1="48.3" y1="41" x2="51.7" y2="41"/>
-              </g>`;
-    } else if (styles.glasses === 'white-round') {
-      svg += `<g stroke="#f8fafc" stroke-width="2" fill="rgba(30,41,59,0.62)">
-                <circle cx="43.5" cy="41" r="4.8"/>
-                <circle cx="56.5" cy="41" r="4.8"/>
-                <line x1="48.3" y1="41" x2="51.7" y2="41"/>
-              </g>`;
-    } else if (styles.glasses === 'wire') {
-      svg += `<g stroke="#3b2f4a" stroke-width="1.5" fill="rgba(255,255,255,0.18)">
-                <rect x="38.5" y="37.5" width="9.5" height="6.8" rx="3"/>
-                <rect x="52" y="37.5" width="9.5" height="6.8" rx="3"/>
-                <line x1="48" y1="40.5" x2="52" y2="40.5"/>
-              </g>`;
-    } else if (styles.glasses === 'dark-cat') {
-      svg += `<g stroke="#1e1916" stroke-width="1.8" fill="rgba(24,20,18,0.78)">
-                <rect x="38" y="37.5" width="10" height="6.5" rx="3"/>
-                <rect x="52" y="37.5" width="10" height="6.5" rx="3"/>
-                <line x1="48" y1="40" x2="52" y2="40"/>
-              </g>`;
-    }
-
-    if (styles.brooch) {
-      svg += `<g transform="translate(61, 75)">
-                <circle cx="0" cy="0" r="2.7" fill="${styles.brooch}"/>
-                <circle cx="0" cy="0" r="1.1" fill="${styles.shade}"/>
-              </g>`;
-    }
-
-    svg += `</svg>`;
-    return svg;
-  } else {
-    // Brothers Collection (M1 - M8): Exact styles & soft pastel gradient backdrops from approved preview
-    const bgPairs = [
-      ['#f3d9e6', '#d8e6f5'], // M1: Soft Pink-Lavender to Sky Blue
-      ['#d5e6f7', '#d8d4f2'], // M2: Sky Blue to Soft Periwinkle
-      ['#d6ebd9', '#d5e5f2'], // M3: Soft Mint-Sage to Pale Blue
-      ['#e8ebd5', '#d5e8e2'], // M4: Soft Cream-Sage to Mint
-      ['#f4d9e4', '#d8e5f5'], // M5: Soft Rose-Pink to Sky Blue
-      ['#f5dae3', '#d9e3f5'], // M6: Soft Blush to Pale Indigo
-      ['#f2dfd3', '#d8e3f2'], // M7: Soft Peach-Sand to Cool Blue
-      ['#d8e2f3', '#d4d9ee']  // M8: Soft Cool Blue-Slate
-    ][n];
-
-    const skin = ['#d9a47e', '#e5b896', '#dca782', '#e4b692', '#e2b28e', '#dfb08c', '#e6b896', '#d8a37e'][n];
-    const skinShade = ['#c48e68', '#d1a07c', '#c7916c', '#cfa07c', '#cc9b76', '#c99974', '#d1a07c', '#c28c67'][n];
-    const hair = ['#231c18', '#1f1916', '#261f1b', '#211b19', '#1c1817', '#4a372c', '#211a17', '#3b2c24'][n];
-    const beard = ['#211a16', '#1c1715', '#231c18', '#1f1917', '#1a1615', '#28201c', '#1f1916', '#241c18'][n];
-    const gid = `mBg${n}`;
-
-    const baseStart = `<svg viewBox="0 0 100 100" aria-hidden="true">
-      <defs>
-        <linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="${bgPairs[0]}"/>
-          <stop offset="100%" stop-color="${bgPairs[1]}"/>
-        </linearGradient>
-      </defs>
-      <circle cx="50" cy="50" r="50" fill="url(#${gid})"/>`;
-
-    // M1: Kufi & Embroidered Cream Panjabi
-    if (n === 0) {
-      return `${baseStart}
-        <path d="M16 100C18 77 31 69 50 69s32 8 34 31Z" fill="#eae2d3"/>
-        <path d="M44 69h12v24H44Z" fill="#dfd5c3"/>
-        <path d="M41 69q9 7 18 0" fill="none" stroke="#b8a88a" stroke-width="2" stroke-linecap="round"/>
-        <line x1="50" y1="73" x2="50" y2="93" stroke="#b8a88a" stroke-width="1.5"/>
-        <circle cx="50" cy="78" r="1.2" fill="#8c7d65"/>
-        <circle cx="50" cy="84" r="1.2" fill="#8c7d65"/>
-        <rect x="44" y="54" width="12" height="17" rx="6" fill="${skinShade}"/>
-        <rect x="36" y="25" width="28" height="35" rx="14" fill="${skin}"/>
-        <path d="M36 42.5c0 11 6 17.5 14 17.5s14-6.5 14-17.5c-3 4.8-8 7-14 7s-11-2.2-14-7Z" fill="${beard}"/>
-        <path d="M44 50.5q6-2.5 12 0" fill="none" stroke="${skin}" stroke-width="2" stroke-linecap="round"/>
-        <!-- Detailed White Knitted Kufi -->
-        <path d="M36 31.5c0-9.5 6-14.5 14-14.5s14 5 14 14.5Z" fill="#ffffff"/>
-        <rect x="36" y="28" width="28" height="3.2" fill="#e2e8f0"/>
-        <path d="M38 25h24M38 29.6h24" stroke="#94a3b8" stroke-width="1.1" stroke-dasharray="2 2"/>
-      </svg>`;
-    }
-
-    // M2: Navy Bisht with Gold Zari Borders & White Thobe + Kufi
-    if (n === 1) {
-      return `${baseStart}
-        <path d="M22 100c2-21 13-29 28-29s26 8 28 29Z" fill="#ffffff"/>
-        <path d="M16 100c2-22 12-31 25-31l9 31H16Zm68 0c-2-22-12-31-25-31l-9 31h34Z" fill="#1e2f5c"/>
-        <path d="M41 69l9 31M59 69l-9 31" stroke="#eab308" stroke-width="2.5"/>
-        <line x1="50" y1="71" x2="50" y2="95" stroke="#cbd5e1" stroke-width="1.4"/>
-        <rect x="44" y="54" width="12" height="17" rx="6" fill="${skinShade}"/>
-        <rect x="36" y="25" width="28" height="35" rx="14" fill="${skin}"/>
-        <path d="M36 42.5c0 11 6 17.5 14 17.5s14-6.5 14-17.5c-3 4.8-8 7-14 7s-11-2.2-14-7Z" fill="${beard}"/>
-        <path d="M44 50.5q6-2.5 12 0" fill="none" stroke="${skin}" stroke-width="2" stroke-linecap="round"/>
-        <path d="M36 31c0-9 6-14 14-14s14 5 14 14Z" fill="#ffffff"/>
-        <line x1="36" y1="31" x2="64" y2="31" stroke="#cbd5e1" stroke-width="1.8"/>
-      </svg>`;
-    }
-
-    // M3: Olive Kurta & Draped Black-White Keffiyeh Scarf
-    if (n === 2) {
-      return `${baseStart}
-        <path d="M16 100C18 77 31 69 50 69s32 8 34 31Z" fill="#5e6b48"/>
-        <line x1="50" y1="72" x2="50" y2="94" stroke="#465234" stroke-width="1.6"/>
-        <!-- Draped Black & White Keffiyeh Scarf -->
-        <path d="M31 69c5 9 33 9 38 0l5 22-11 9-13-14-13 14-11-9Z" fill="#ffffff"/>
-        <path d="M32 74h36M30 80h40M34 86h32" stroke="#1e2028" stroke-width="1.8" stroke-dasharray="2.5 2.5"/>
-        <rect x="44" y="54" width="12" height="17" rx="6" fill="${skinShade}"/>
-        <rect x="36" y="25" width="28" height="35" rx="14" fill="${skin}"/>
-        <path d="M36 42.5c0 11 6 17.5 14 17.5s14-6.5 14-17.5c-3 4.8-8 7-14 7s-11-2.2-14-7Z" fill="${beard}"/>
-        <path d="M44 50.5q6-2.5 12 0" fill="none" stroke="${skin}" stroke-width="2" stroke-linecap="round"/>
-        <!-- Clean Short Hair -->
-        <path d="M36 33c0-9.5 6-14.5 14-14.5s14 5 14 14.5c-2.5-3.5-7-5-14-5s-11.5 1.5-14 5Z" fill="${hair}"/>
-      </svg>`;
-    }
-
-    // M4: Sage Amamah Turban & Cream Jubbah + Long Full Beard
-    if (n === 3) {
-      return `${baseStart}
-        <path d="M16 100C18 77 31 69 50 69s32 8 34 31Z" fill="#f3efe6"/>
-        <line x1="50" y1="70" x2="50" y2="94" stroke="#cbd5e1" stroke-width="1.6"/>
-        <rect x="44" y="54" width="12" height="17" rx="6" fill="${skinShade}"/>
-        <rect x="36" y="27" width="28" height="33" rx="14" fill="${skin}"/>
-        <path d="M35.5 42c0 13 6 21 14.5 21s14.5-8 14.5-21c-3 5-8 7.5-14.5 7.5S38.5 47 35.5 42Z" fill="${beard}"/>
-        <path d="M44 50.5q6-2.5 12 0" fill="none" stroke="${skin}" stroke-width="2" stroke-linecap="round"/>
-        <!-- Sage Layered Amamah Turban + Hanging Tail -->
-        <path d="M62 31l7 42-8 5-4-41Z" fill="#7c9180"/>
-        <path d="M29 33c0-14 9-21 21-21s21 7 21 21c-6.5-4-13.5-5-21-5s-14.5 1-21 5Z" fill="#899e8d"/>
-        <path d="M30 25c12.5 5 27.5 5 40 0M31 30c12.5-4 25.5-4 38 0" fill="none" stroke="#627566" stroke-width="2" stroke-linecap="round"/>
-      </svg>`;
-    }
-
-    // M5: Classic Red & White Ghutra with Black Agal + White Thobe
-    if (n === 4) {
-      return `${baseStart}
-        <path d="M16 100C18 77 31 69 50 69s32 8 34 31Z" fill="#ffffff"/>
-        <line x1="50" y1="70" x2="50" y2="94" stroke="#cbd5e1" stroke-width="1.6"/>
-        <path d="M25 42c0-16 10-26 25-26s25 10 25 26l5 45H20Z" fill="#ffffff"/>
-        <path d="M26 33h48M24 40h52M22 48h56M21 56h58" stroke="#c53030" stroke-width="1.6" stroke-dasharray="3 3" opacity="0.78"/>
-        <rect x="37" y="28" width="26" height="32" rx="13" fill="${skin}"/>
-        <path d="M37 44.5c0 9.5 6 15.5 13 15.5s13-6 13-15.5c-3 4.2-7 6.2-13 6.2s-10-2-13-6.2Z" fill="${beard}"/>
-        <path d="M44 50.5q6-2.5 12 0" fill="none" stroke="${skin}" stroke-width="2" stroke-linecap="round"/>
-        <rect x="32" y="20.5" width="36" height="3.2" rx="1.6" fill="#18191f"/>
-        <rect x="32" y="24.5" width="36" height="3.2" rx="1.6" fill="#18191f"/>
-      </svg>`;
-    }
-
-    // M6: Smart Navy Blazer over White Mandarin Collar Shirt + Neat Short Fade
-    if (n === 5) {
-      return `${baseStart}
-        <path d="M22 100c2-21 13-29 28-29s26 8 28 29Z" fill="#ffffff"/>
-        <line x1="50" y1="71" x2="50" y2="94" stroke="#cbd5e1" stroke-width="1.5"/>
-        <path d="M16 100c2-22 12-31 24-31l10 29 10-29c12 0 22 9 24 31Z" fill="#233354"/>
-        <path d="M40 69l10 27 10-27" fill="none" stroke="#16223b" stroke-width="2.4" stroke-linejoin="round"/>
-        <rect x="44" y="54" width="12" height="17" rx="6" fill="${skinShade}"/>
-        <rect x="36" y="25" width="28" height="35" rx="14" fill="${skin}"/>
-        <path d="M36 43c0 10.5 6 16.5 14 16.5s14-6 14-16.5c-3 4.8-8 7-14 7s-11-2.2-14-7Z" fill="${beard}"/>
-        <path d="M44 50.5q6-2.5 12 0" fill="none" stroke="${skin}" stroke-width="2" stroke-linecap="round"/>
-        <path d="M36 33c0-9.5 6-14.5 14-14.5s14 5 14 14.5c-2.5-3.5-7-5-14-5s-11.5 1.5-14 5Z" fill="${hair}"/>
-      </svg>`;
-    }
-
-    // M7: Camel Overshirt over White Tee + Dark Wayfarer Sunglasses & Quiff Hair
-    if (n === 6) {
-      return `${baseStart}
-        <path d="M22 100c2-21 13-29 28-29s26 8 28 29Z" fill="#ffffff"/>
-        <path d="M16 100c2-22 12-31 24-31l7 31H16Zm68 0c-2-22-12-31-24-31l-7 31h31Z" fill="#b08254"/>
-        <rect x="44" y="54" width="12" height="17" rx="6" fill="${skinShade}"/>
-        <rect x="36" y="25" width="28" height="35" rx="14" fill="${skin}"/>
-        <path d="M36 43c0 10.5 6 16.5 14 16.5s14-6 14-16.5c-3 4.8-8 7-14 7s-11-2.2-14-7Z" fill="${beard}"/>
-        <path d="M44 50.5q6-2.5 12 0" fill="none" stroke="${skin}" stroke-width="2" stroke-linecap="round"/>
-        <path d="M35 33.5c0-10.5 5.5-16.5 15-16.5 8.5 0 14 5.5 14 16.5-2-4.5-6.5-6.5-14-6.5s-12.5 2-15 6.5Z" fill="${hair}"/>
-        <g stroke="#111318" stroke-width="2" fill="#181b22">
-          <rect x="37.5" y="36.5" width="11" height="7" rx="2"/>
-          <rect x="51.5" y="36.5" width="11" height="7" rx="2"/>
-          <line x1="48.5" y1="39" x2="51.5" y2="39"/>
-        </g>
-      </svg>`;
-    }
-
-    // M8: Minimalist Slate Hoodie & Clean Short Buzz/Fade Hair
-    return `${baseStart}
-      <path d="M16 100C18 77 31 69 50 69s32 8 34 31Z" fill="#525d6e"/>
-      <path d="M38 69c4 7 20 7 24 0" fill="none" stroke="#3b4452" stroke-width="3" stroke-linecap="round"/>
-      <line x1="45" y1="75" x2="45" y2="87" stroke="#cbd5e1" stroke-width="1.8" stroke-linecap="round"/>
-      <line x1="55" y1="75" x2="55" y2="87" stroke="#cbd5e1" stroke-width="1.8" stroke-linecap="round"/>
-      <rect x="44" y="54" width="12" height="17" rx="6" fill="${skinShade}"/>
-      <rect x="36" y="25" width="28" height="35" rx="14" fill="${skin}"/>
-      <path d="M36 43c0 10.5 6 16.5 14 16.5s14-6 14-16.5c-3 4.8-8 7-14 7s-11-2.2-14-7Z" fill="${beard}"/>
-      <path d="M44 50.5q6-2.5 12 0" fill="none" stroke="${skin}" stroke-width="2" stroke-linecap="round"/>
-      <path d="M36 33c0-9.5 6-14.5 14-14.5s14 5 14 14.5c-2.5-3.5-7-5-14-5s-11.5 1.5-14 5Z" fill="${hair}"/>
-    </svg>`;
+function triggerBlast(emoji) {
+  const overlay = $('fxOverlay');
+  for (let i = 0; i < 16; i++) {
+    const p = document.createElement('span');
+    p.className = 'fx-particle';
+    p.textContent = emoji;
+    p.style.left = `${10 + Math.random() * 80}%`;
+    p.style.bottom = `${10 + Math.random() * 20}%`;
+    p.style.animationDelay = `${Math.random() * 0.35}s`;
+    overlay.appendChild(p);
+    setTimeout(() => p.remove(), 1900);
   }
 }
 
-/* ---------- Utility Helpers ---------- */
-const el = (tag, cls, text) => {
-  const e = document.createElement(tag);
-  if (cls) e.className = cls;
-  if (text !== undefined) e.textContent = text;
-  return e;
-};
-const fmtTime = (t) => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-
-function showToast(msg) {
-  const t = $('toast');
-  t.textContent = msg;
-  t.classList.remove('hidden');
-  clearTimeout(t._timer);
-  t._timer = setTimeout(() => t.classList.add('hidden'), 3000);
-}
-
-/* ---------- Theme System ---------- */
-function setTheme(t) {
-  document.documentElement.dataset.theme = t;
-  try { localStorage.setItem('theme', t); } catch (e) {}
-}
-let savedTheme = null;
-try { savedTheme = localStorage.getItem('theme'); } catch (e) {}
-setTheme(savedTheme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'midnight' : 'light'));
-
-$('themeBtn').onclick = () => {
-  const current = document.documentElement.dataset.theme;
-  setTheme(['light', 'sakura'].includes(current) ? 'midnight' : 'light');
-  showToast('Theme switched');
-};
-
-function openModal(id) { $(id).classList.remove('hidden'); }
-function closeModal(id) { $(id).classList.add('hidden'); }
-
-$('themePresetsBtn').onclick = () => { closeAllMenus(); openModal('themesModal'); };
-if ($('devInfoBtn')) $('devInfoBtn').onclick = () => openModal('devModal');
-$('sidebarThemeBtn').onclick = () => { closeAllMenus(); openModal('themesModal'); };
-
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
-    closeAllMenus();
+/* =========================================================
+   WEB AUDIO ENGINE (Voice Morphing Only: Normal, Female, Old, Baby)
+   ========================================================= */
+let sharedAudioCtx = null;
+function getAudioCtx() {
+  if (!sharedAudioCtx) {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (Ctx) sharedAudioCtx = new Ctx();
   }
-});
-document.querySelectorAll('[data-close]').forEach((b) => (b.onclick = () => closeModal(b.dataset.close)));
-document.querySelectorAll('.modal').forEach((m) =>
-  m.addEventListener('click', (e) => {
-    if (e.target === m) m.classList.add('hidden');
-  })
-);
-document.querySelectorAll('[data-theme-choice]').forEach((b) => {
-  b.onclick = () => {
-    setTheme(b.dataset.themeChoice);
-    closeModal('themesModal');
-    showToast(`${b.querySelector('b').textContent} theme applied ✦`);
+  if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
+    sharedAudioCtx.resume().catch(() => {});
+  }
+  return sharedAudioCtx;
+}
+
+async function applyVoiceMorphFilter(blob, effect) {
+  if (!effect || effect === 'normal') return blob;
+  try {
+    const ctx = getAudioCtx();
+    if (!ctx) return blob;
+    const arrayBuf = await blob.arrayBuffer();
+    const audioBuf = await ctx.decodeAudioData(arrayBuf);
+
+    // Pitch & tempo multipliers for Female, Old, and Baby voices
+    let rate = 1.0;
+    if (effect === 'female') rate = 1.24;     // Higher bright feminine pitch
+    else if (effect === 'old') rate = 0.84;   // Deeper slower elderly timbre
+    else if (effect === 'baby') rate = 1.48;  // High playful baby voice
+
+    const outLength = Math.max(1, Math.floor(audioBuf.length / rate));
+    const offline = new OfflineAudioContext(audioBuf.numberOfChannels, outLength, audioBuf.sampleRate);
+
+    const src = offline.createBufferSource();
+    src.buffer = audioBuf;
+    src.playbackRate.value = rate;
+
+    if (effect === 'female') {
+      const highShelf = offline.createBiquadFilter();
+      highShelf.type = 'highshelf';
+      highShelf.frequency.value = 1800;
+      highShelf.gain.value = 5;
+      src.connect(highShelf);
+      highShelf.connect(offline.destination);
+    } else if (effect === 'old') {
+      const bandpass = offline.createBiquadFilter();
+      bandpass.type = 'bandpass';
+      bandpass.frequency.value = 950;
+      bandpass.Q.value = 0.9;
+      src.connect(bandpass);
+      bandpass.connect(offline.destination);
+    } else if (effect === 'baby') {
+      const treble = offline.createBiquadFilter();
+      treble.type = 'peaking';
+      treble.frequency.value = 2400;
+      treble.gain.value = 6;
+      src.connect(treble);
+      treble.connect(offline.destination);
+    } else {
+      src.connect(offline.destination);
+    }
+
+    src.start(0);
+    const rendered = await offline.startRendering();
+    return audioBufferToWavBlob(rendered);
+  } catch (e) {
+    return blob;
+  }
+}
+
+function audioBufferToWavBlob(buffer) {
+  const numChannels = buffer.numberOfChannels;
+  const sampleRate = buffer.sampleRate;
+  const length = buffer.length * numChannels * 2;
+  const arrayBuffer = new ArrayBuffer(44 + length);
+  const view = new DataView(arrayBuffer);
+
+  const writeStr = (offset, str) => {
+    for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
   };
-});
+  writeStr(0, 'RIFF');
+  view.setUint32(4, 36 + length, true);
+  writeStr(8, 'WAVE');
+  writeStr(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * numChannels * 2, true);
+  view.setUint16(32, numChannels * 2, true);
+  view.setUint16(34, 16, true);
+  writeStr(36, 'data');
+  view.setUint32(40, length, true);
 
-/* ---------- Synced Weather Atmosphere Engine ---------- */
-const WEATHER_META = {
-  clear:  { icon: '☀️', svg: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>', label: 'Clear Sky' },
-  rain:   { icon: '🌧️', svg: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M16 14v6"/><path d="M8 14v6"/><path d="M12 16v6"/></svg>', label: 'Cozy Rain' },
-  storm:  { icon: '⛈️', svg: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.326A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 .5 8.973"/><path d="m13 12-3 5h4l-3 5"/></svg>', label: 'Thunder Storm' },
-  snow:   { icon: '❄️', svg: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/><path d="m20 16-4-4 4-4"/><path d="m4 8 4 4-4 4"/><path d="m16 4-4 4-4-4"/><path d="m8 20 4-4 4 4"/></svg>', label: 'Soft Snow' },
-  stars:  { icon: '🌌', svg: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>', label: 'Starry Night' },
-  petals: { icon: '🌸', svg: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 16.5A4.5 4.5 0 1 1 7.5 12 4.5 4.5 0 1 1 12 7.5a4.5 4.5 0 1 1 4.5 4.5 4.5 4.5 0 1 1-4.5 4.5"/></svg>', label: 'Cherry Blossom' }
-};
-
-const canvas = $('weatherCanvas');
-const ctx = canvas.getContext('2d');
-let particles = [];
-let animFrame = null;
-let lightningTimer = null;
-
-function resizeCanvas() {
-  const pane = $('activeChatView');
-  canvas.width = pane.clientWidth || window.innerWidth;
-  canvas.height = pane.clientHeight || window.innerHeight;
-}
-window.addEventListener('resize', resizeCanvas);
-
-function initParticles(type) {
-  resizeCanvas();
-  particles = [];
-  const count = type === 'rain' ? 95 : type === 'storm' ? 140 : type === 'snow' ? 75 : type === 'stars' ? 65 : type === 'petals' ? 35 : 0;
-  for (let i = 0; i < count; i++) {
-    particles.push({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
-      r: type === 'snow' ? Math.random() * 2.8 + 1.2 : type === 'stars' ? Math.random() * 1.8 + 0.5 : type === 'petals' ? Math.random() * 4 + 3 : Math.random() * 1.2 + 0.8,
-      len: type === 'rain' ? Math.random() * 14 + 10 : type === 'storm' ? Math.random() * 20 + 14 : 0,
-      vy: type === 'rain' ? Math.random() * 6 + 9 : type === 'storm' ? Math.random() * 9 + 13 : type === 'snow' ? Math.random() * 1.4 + 0.6 : type === 'petals' ? Math.random() * 1.5 + 0.8 : 0,
-      vx: type === 'storm' ? -2.8 : type === 'rain' ? -1.1 : type === 'snow' ? Math.random() * 0.8 - 0.4 : type === 'petals' ? Math.random() * 1.4 - 0.5 : 0,
-      alpha: Math.random() * 0.6 + 0.25,
-      phase: Math.random() * Math.PI * 2
-    });
-  }
-}
-
-function drawWeather() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (currentWeather === 'clear') return;
-
-  for (const p of particles) {
-    if (currentWeather === 'rain' || currentWeather === 'storm') {
-      ctx.strokeStyle = `rgba(174, 214, 241, ${p.alpha})`;
-      ctx.lineWidth = currentWeather === 'storm' ? 1.4 : 1.1;
-      ctx.beginPath();
-      ctx.moveTo(p.x, p.y);
-      ctx.lineTo(p.x + p.vx * 1.5, p.y + p.len);
-      ctx.stroke();
-      p.x += p.vx;
-      p.y += p.vy;
-    } else if (currentWeather === 'snow') {
-      ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha + 0.2})`;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fill();
-      p.phase += 0.02;
-      p.x += p.vx + Math.sin(p.phase) * 0.4;
-      p.y += p.vy;
-    } else if (currentWeather === 'stars') {
-      p.phase += 0.03;
-      const twinkle = 0.3 + Math.abs(Math.sin(p.phase)) * 0.7;
-      ctx.fillStyle = `rgba(243, 232, 255, ${twinkle})`;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fill();
-    } else if (currentWeather === 'petals') {
-      ctx.fillStyle = `rgba(251, 113, 133, ${p.alpha + 0.15})`;
-      ctx.beginPath();
-      ctx.ellipse(p.x, p.y, p.r, p.r * 0.55, p.phase, 0, Math.PI * 2);
-      ctx.fill();
-      p.phase += 0.03;
-      p.x += p.vx + Math.sin(p.phase) * 0.7;
-      p.y += p.vy;
+  let offset = 44;
+  for (let i = 0; i < buffer.length; i++) {
+    for (let ch = 0; ch < numChannels; ch++) {
+      let sample = buffer.getChannelData(ch)[i];
+      sample = Math.max(-1, Math.min(1, sample));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+      offset += 2;
     }
-
-    if (p.y > canvas.height + 20) {
-      p.y = -15;
-      p.x = Math.random() * canvas.width;
-    }
-    if (p.x < -20) p.x = canvas.width + 10;
-    if (p.x > canvas.width + 20) p.x = -10;
   }
-
-  animFrame = requestAnimationFrame(drawWeather);
+  return new Blob([arrayBuffer], { type: 'audio/wav' });
 }
 
-function applyWeather(weather, announceBy) {
-  if (!WEATHER_META[weather]) weather = 'clear';
-  currentWeather = weather;
-  $('weatherIcon').innerHTML = WEATHER_META[weather].svg;
+/* =========================================================
+   LIVE WEATHER CANVAS ENGINE
+   ========================================================= */
+let weatherParticles = [];
+let lightningAlpha = 0;
+function setWeather(type, broadcast = false) {
+  state.weather = type || 'clear';
+  $('weatherIcon').innerHTML = WEATHER_ICONS[state.weather] || WEATHER_ICONS.clear;
+  const canvas = $('weatherCanvas');
+  if (!canvas) return;
+  const w = canvas.width = canvas.offsetWidth || 400;
+  const h = canvas.height = canvas.offsetHeight || 600;
+  weatherParticles = [];
 
-  $('weatherMenu').querySelectorAll('button').forEach((b) => {
-    b.classList.toggle('active-opt', b.dataset.weather === weather);
-  });
-
-  if (animFrame) cancelAnimationFrame(animFrame);
-  clearInterval(lightningTimer);
-
-  if (weather === 'clear') {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-  } else {
-    initParticles(weather);
-    drawWeather();
+  if (state.weather === 'rain' || state.weather === 'storm') {
+    const count = state.weather === 'storm' ? 95 : 55;
+    for (let i = 0; i < count; i++) {
+      weatherParticles.push({ x: Math.random() * w, y: Math.random() * h, l: 12 + Math.random() * 14, v: 9 + Math.random() * 7 });
+    }
+  } else if (state.weather === 'snow') {
+    for (let i = 0; i < 50; i++) {
+      weatherParticles.push({ x: Math.random() * w, y: Math.random() * h, r: 1.5 + Math.random() * 2.5, v: 1 + Math.random() * 1.5, d: Math.random() * Math.PI * 2 });
+    }
+  } else if (state.weather === 'stars') {
+    for (let i = 0; i < 45; i++) {
+      weatherParticles.push({ x: Math.random() * w, y: Math.random() * h * 0.75, r: 0.8 + Math.random() * 1.6, a: Math.random(), s: 0.02 + Math.random() * 0.03 });
+    }
+  } else if (state.weather === 'petals') {
+    for (let i = 0; i < 28; i++) {
+      weatherParticles.push({ x: Math.random() * w, y: Math.random() * h, r: 3 + Math.random() * 3, v: 1.1 + Math.random() * 1.2, d: Math.random() * 6 });
+    }
   }
 
-  if (weather === 'storm') {
-    lightningTimer = setInterval(() => {
-      if (Math.random() > 0.45) {
-        const c = $('activeChatView');
-        c.classList.remove('lightning-flash');
-        void c.offsetWidth;
-        c.classList.add('lightning-flash');
+  if (broadcast && state.activeFriend) {
+    socket.emit('chat:weather', { to: state.activeFriend.username, weather: state.weather });
+  }
+}
+
+function startWeatherLoop() {
+  const canvas = $('weatherCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  function frame() {
+    if (canvas.width !== canvas.offsetWidth || canvas.height !== canvas.offsetHeight) {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+    }
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    if (state.weather === 'rain' || state.weather === 'storm') {
+      ctx.strokeStyle = 'rgba(147, 197, 253, 0.35)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for (const p of weatherParticles) {
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.x - 2, p.y + p.l);
+        p.x -= 1.2;
+        p.y += p.v;
+        if (p.y > h) { p.y = -20; p.x = Math.random() * w; }
       }
-    }, 4500);
+      ctx.stroke();
+
+      if (state.weather === 'storm') {
+        if (Math.random() < 0.008) lightningAlpha = 0.28;
+        if (lightningAlpha > 0) {
+          ctx.fillStyle = `rgba(224, 242, 254, ${lightningAlpha})`;
+          ctx.fillRect(0, 0, w, h);
+          lightningAlpha -= 0.025;
+        }
+      }
+    } else if (state.weather === 'snow') {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+      for (const p of weatherParticles) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+        p.d += 0.02;
+        p.x += Math.sin(p.d) * 0.6;
+        p.y += p.v;
+        if (p.y > h) { p.y = -10; p.x = Math.random() * w; }
+      }
+    } else if (state.weather === 'stars') {
+      for (const p of weatherParticles) {
+        p.a += p.s;
+        const alpha = 0.25 + Math.abs(Math.sin(p.a)) * 0.75;
+        ctx.fillStyle = `rgba(253, 224, 71, ${alpha})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (state.weather === 'petals') {
+      ctx.fillStyle = 'rgba(244, 114, 182, 0.45)';
+      for (const p of weatherParticles) {
+        ctx.beginPath();
+        ctx.ellipse(p.x, p.y, p.r, p.r * 0.55, p.d, 0, Math.PI * 2);
+        ctx.fill();
+        p.d += 0.03;
+        p.x += Math.sin(p.d) * 1.1;
+        p.y += p.v;
+        if (p.y > h) { p.y = -10; p.x = Math.random() * w; }
+      }
+    }
+    requestAnimationFrame(frame);
   }
+  requestAnimationFrame(frame);
+}
 
-  if (announceBy) {
-    showToast(`${WEATHER_META[weather].icon} ${announceBy} changed weather to ${WEATHER_META[weather].label}`);
+/* =========================================================
+   LIVE HEARTBEAT PULSE ENGINE
+   ========================================================= */
+function triggerHeartbeatPulse(isSender = false) {
+  const overlay = $('heartbeatOverlay');
+  if (!overlay) return;
+  overlay.classList.remove('hidden');
+  $('heartbeatBtn')?.classList.add('active');
+  if (navigator.vibrate) {
+    try { navigator.vibrate([70, 50, 110]); } catch (e) {}
+  }
+  clearTimeout(triggerHeartbeatPulse.t);
+  triggerHeartbeatPulse.t = setTimeout(() => {
+    overlay.classList.add('hidden');
+    $('heartbeatBtn')?.classList.remove('active');
+  }, 1450);
+
+  if (isSender && state.activeFriend) {
+    socket.emit('chat:heartbeat', { to: state.activeFriend.username });
   }
 }
 
-/* ---------- Dropdown Menus ---------- */
-function closeAllMenus() {
-  $('weatherMenu').classList.add('hidden');
-  $('moodMenu').classList.add('hidden');
-  $('moreMenu').classList.add('hidden');
+/* =========================================================
+   AUTHENTICATION & QUICK ROOMS
+   ========================================================= */
+function renderAvatarGallery() {
+  const ids = Object.keys(AVATARS).filter(id => AVATARS[id].group === state.avatarGroup);
+  if (!ids.includes(state.avatar)) state.avatar = ids[0];
+  $('avatarGallery').innerHTML = ids.map(id => `
+    <button type="button" class="avatar-choice ${state.avatar === id ? 'selected' : ''}" data-avatar="${id}" title="${AVATARS[id].label}">
+      ${avatarSvg(id)}
+    </button>
+  `).join('');
+  $('maleAvatars').classList.toggle('primary-action', state.avatarGroup === 'male');
+  $('femaleAvatars').classList.toggle('primary-action', state.avatarGroup === 'female');
 }
-document.addEventListener('click', (e) => {
-  closeAllMenus();
-  if (!e.target.closest('.message-actions') && !e.target.closest('.message-menu-btn')) {
-    document.querySelectorAll('.message-actions').forEach((x) => x.classList.add('hidden'));
+
+function setAuthMode(mode) {
+  state.mode = mode;
+  const isLogin = mode === 'login';
+  const isRegister = mode === 'register';
+  const isRoom = mode === 'room';
+
+  $('loginTab').classList.toggle('primary-action', isLogin || isRegister);
+  $('roomTab').classList.toggle('primary-action', isRoom);
+
+  $('accountAuthFields').classList.toggle('hidden', isRoom);
+  $('roomModeFields').classList.toggle('hidden', !isRoom);
+  $('profileSetupFields').classList.toggle('hidden', isLogin);
+  $('authSwitchFooter').classList.toggle('hidden', isRoom);
+
+  $('username').required = !isRoom;
+  $('password').required = !isRoom;
+  $('accountName').required = isRegister || isRoom;
+
+  if (isLogin) {
+    $('authDescription').textContent = 'Sign in to access your friends & private conversations.';
+    $('password').autocomplete = 'current-password';
+    $('authSubmitText').textContent = 'Sign in';
+    $('authSwitchPrompt').textContent = "Don't have an account?";
+    $('registerTabText').textContent = 'Create new account';
+    $('registerTab').classList.remove('active-register');
+  } else if (isRegister) {
+    $('authDescription').textContent = 'Create your account and pick a minimalist portrait.';
+    $('password').autocomplete = 'new-password';
+    $('accountName').placeholder = 'Display name (e.g. Ahmad)';
+    $('authSubmitText').textContent = 'Create account';
+    $('authSwitchPrompt').textContent = 'Already have an account?';
+    $('registerTabText').textContent = 'Back to Sign in';
+    $('registerTab').classList.add('active-register');
+    renderAvatarGallery();
+  } else {
+    $('authDescription').textContent = 'Create or join a private room instantly using a 6-digit code.';
+    $('accountName').placeholder = 'Your nickname in room';
+    setRoomSubMode(state.roomSubMode);
+    renderAvatarGallery();
   }
-});
-
-$('weatherBtn').onclick = (e) => {
-  e.stopPropagation();
-  const isHidden = $('weatherMenu').classList.contains('hidden');
-  closeAllMenus();
-  if (isHidden) $('weatherMenu').classList.remove('hidden');
-};
-$('weatherMenu').querySelectorAll('button').forEach((btn) => {
-  btn.onclick = () => {
-    if (!activePeer) return;
-    const w = btn.dataset.weather;
-    applyWeather(w, 'You');
-    socket.emit('weather', { peerId: activePeer.id, weather: w });
-  };
-});
-
-$('moodBtn').onclick = (e) => {
-  e.stopPropagation();
-  const isHidden = $('moodMenu').classList.contains('hidden');
-  closeAllMenus();
-  if (isHidden) $('moodMenu').classList.remove('hidden');
-};
-const AURA_KEYS = ['chill', 'focus', 'cozy', 'vibe', 'peace', 'fire', 'love'];
-function inferAuraFromMood(moodStr) {
-  if (!moodStr) return '';
-  if (moodStr.includes('Chilling')) return 'chill';
-  if (moodStr.includes('Studying')) return 'focus';
-  if (moodStr.includes('Coffee')) return 'cozy';
-  if (moodStr.includes('Vibing')) return 'vibe';
-  if (moodStr.includes('Dua')) return 'peace';
-  if (moodStr.includes('Busy')) return 'fire';
-  if (moodStr.includes('Affectionate')) return 'love';
-  return 'chill';
-}
-function applyAuraClass(elTarget, aura) {
-  if (!elTarget) return;
-  AURA_KEYS.forEach((k) => elTarget.classList.remove('aura-' + k));
-  if (aura && AURA_KEYS.includes(aura)) elTarget.classList.add('aura-' + aura);
-}
-function applyMyAura(moodStr) {
-  const aura = inferAuraFromMood(moodStr);
-  applyAuraClass($('sidebarMyAuraWrap'), aura);
-  applyAuraClass($('myPortrait'), aura);
+  $('authError').textContent = '';
 }
 
-$('moodMenu').querySelectorAll('button').forEach((btn) => {
-  btn.onclick = () => {
-    myMood = btn.dataset.mood;
-    $('moodBtn').classList.toggle('active-symbol', !!myMood);
-    applyMyAura(myMood);
-    socket.emit('mood', myMood);
-    showToast(myMood ? `Aura & Mood set to ${myMood}` : 'Aura cleared');
-  };
-});
-if ($('roomMoodBtn')) {
-  $('roomMoodBtn').onclick = (e) => {
-    e.stopPropagation();
-    closeAllMenus();
-    $('moodMenu').classList.remove('hidden');
-  };
+function setRoomSubMode(sub) {
+  state.roomSubMode = sub;
+  const isCreate = sub === 'create';
+  $('createRoomSubTab').classList.toggle('active', isCreate);
+  $('joinRoomSubTab').classList.toggle('active', !isCreate);
+  $('createRoomBox').classList.toggle('hidden', !isCreate);
+  $('joinRoomBox').classList.toggle('hidden', isCreate);
+  $('joinRoomCodeInput').required = !isCreate && state.mode === 'room';
+
+  if (isCreate) {
+    if (!state.generatedRoomCode) generateRoomCode();
+    $('authSubmitText').textContent = 'Create & Enter Room';
+  } else {
+    $('authSubmitText').textContent = 'Join Room';
+  }
 }
 
-$('moreBtn').onclick = (e) => {
-  e.stopPropagation();
-  const isHidden = $('moreMenu').classList.contains('hidden');
-  closeAllMenus();
-  if (isHidden) $('moreMenu').classList.remove('hidden');
+async function api(url, opts = {}) {
+  const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+  if (state.token) headers.Authorization = `Bearer ${state.token}`;
+  const res = await fetch(url, { ...opts, headers });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+$('loginTab').onclick = () => setAuthMode('login');
+$('registerTab').onclick = () => setAuthMode(state.mode === 'register' ? 'login' : 'register');
+$('roomTab').onclick = () => setAuthMode('room');
+$('createRoomSubTab').onclick = () => setRoomSubMode('create');
+$('joinRoomSubTab').onclick = () => setRoomSubMode('join');
+
+$('regenRoomCodeBtn').onclick = () => {
+  generateRoomCode();
+  toast('New room code generated');
 };
 
-/* ---------- Multi-Inbox Sidebar, Search & Friend Requests ---------- */
-function renderSidebar() {
-  // Pending Friend Requests
-  const incoming = inboxData.incoming || [];
-  $('requestsSection').classList.toggle('hidden', incoming.length === 0);
-  $('requestCountBadge').textContent = String(incoming.length);
-  $('requestsList').replaceChildren();
+$('copyRoomCodeBtn').onclick = async () => {
+  try {
+    await navigator.clipboard.writeText(state.generatedRoomCode);
+    toast(`Room code ${state.generatedRoomCode} copied`);
+  } catch (e) {
+    toast(`Room code: ${state.generatedRoomCode}`);
+  }
+};
 
-  incoming.forEach((u) => {
-    const row = el('div', 'user-row');
-    const av = el('div', 'avatar sm');
-    av.innerHTML = avatarArt(u.gender, u.avatar);
+$('maleAvatars').onclick = () => { state.avatarGroup = 'male'; renderAvatarGallery(); };
+$('femaleAvatars').onclick = () => { state.avatarGroup = 'female'; renderAvatarGallery(); };
+$('avatarGallery').onclick = e => {
+  const btn = e.target.closest('[data-avatar]');
+  if (btn) {
+    state.avatar = btn.dataset.avatar;
+    renderAvatarGallery();
+  }
+};
 
-    const info = el('div', 'user-row-info');
-    const top = el('div', 'user-row-top');
-    top.append(el('b', '', u.name));
-    const sub = el('div', 'user-row-sub');
-    sub.append(el('span', '', `@${u.username}`));
-    info.append(top, sub);
+$('authForm').onsubmit = async e => {
+  e.preventDefault();
+  $('authError').textContent = '';
+  try {
+    if (state.mode === 'room') {
+      const displayName = $('accountName').value.trim();
+      if (!displayName) throw new Error('Please enter your nickname.');
+      const code = state.roomSubMode === 'create'
+        ? state.generatedRoomCode
+        : $('joinRoomCodeInput').value.trim().toUpperCase();
+      if (!/^[A-Z0-9]{6}$/.test(code)) throw new Error('Enter a valid 6-character room code.');
 
-    const acts = el('div', 'row-actions');
-    const acceptBtn = el('button', 'mini-pill-btn solid icon-only-pill'); acceptBtn.title = 'Accept'; acceptBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-    acceptBtn.onclick = () => {
-      socket.emit('friend-accept', u.id, (res) => {
-        if (res.error) return showToast(res.error);
-        inboxData = res.inbox;
-        renderSidebar();
-        showToast(`You and ${u.name} are now friends!`);
-      });
+      const guestId = 'guest_' + Math.random().toString(36).slice(2, 8);
+      state.isRoomSession = true;
+      state.activeRoomCode = code;
+      state.user = { username: guestId, name: displayName, avatar: state.avatar, isGuest: true };
+      enterQuickRoomWorkspace();
+      return;
+    }
+
+    const payload = {
+      username: $('username').value.trim(),
+      password: $('password').value,
+      name: $('accountName').value.trim(),
+      avatar: state.avatar
     };
-    const declineBtn = el('button', 'mini-pill-btn decline icon-only-pill'); declineBtn.title = 'Decline'; declineBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
-    declineBtn.onclick = () => {
-      socket.emit('friend-decline', u.id, (res) => {
-        if (res.error) return showToast(res.error);
-        inboxData = res.inbox;
-        renderSidebar();
-        showToast('Request declined');
-      });
-    };
-    acts.append(acceptBtn, declineBtn);
-    row.append(av, info, acts);
-    $('requestsList').append(row);
-  });
+    const data = await api(`/api/${state.mode}`, { method: 'POST', body: JSON.stringify(payload) });
+    state.isRoomSession = false;
+    state.token = data.token;
+    state.user = data.user;
+    sessionStorage.setItem('dc_token', data.token);
+    enterMessenger();
+  } catch (err) {
+    $('authError').textContent = err.message;
+  }
+};
 
-  // Accepted Friends Inbox
-  const friends = inboxData.friends || [];
-  $('friendCountLabel').textContent = String(friends.length);
-  $('inboxList').replaceChildren();
+function enterQuickRoomWorkspace() {
+  $('auth').classList.add('hidden');
+  $('app').classList.remove('hidden');
 
-  if (!friends.length) {
-    $('inboxList').append(
-      el('div', 'empty-list-hint', 'No conversations yet. Search a username above to send a friend request!')
-    );
+  $('sidebarMyAvatar').innerHTML = avatarSvg(state.user.avatar);
+  $('sidebarMyName').textContent = state.user.name;
+  $('sidebarMyHandle').textContent = `Room ${state.activeRoomCode}`;
+
+  $('activeRoomCodeBadge').classList.remove('hidden');
+  $('activeRoomCodeText').textContent = `ROOM: ${state.activeRoomCode}`;
+  $('leaveRoomBtn').classList.remove('hidden');
+
+  state.friends = [];
+  state.requests = [];
+  const waitingPeer = {
+    username: `room:${state.activeRoomCode}`,
+    name: `Room ${state.activeRoomCode}`,
+    avatar: state.avatar === 'brother-1' ? 'sister-1' : 'brother-1',
+    online: false,
+    isRoomChannel: true
+  };
+  state.activeFriend = waitingPeer;
+  state.messages = [];
+
+  renderInbox();
+  openConversation(waitingPeer);
+
+  socket.auth = {
+    roomCode: state.activeRoomCode,
+    guestUser: state.user
+  };
+  socket.connect();
+}
+
+async function enterMessenger() {
+  $('auth').classList.add('hidden');
+  $('app').classList.remove('hidden');
+  $('activeRoomCodeBadge').classList.add('hidden');
+  $('leaveRoomBtn').classList.add('hidden');
+
+  $('sidebarMyAvatar').innerHTML = avatarSvg(state.user.avatar);
+  $('sidebarMyName').textContent = state.user.name;
+  $('sidebarMyHandle').textContent = `@${state.user.username}`;
+
+  socket.auth = { token: state.token };
+  socket.connect();
+  await refreshInbox();
+}
+
+async function refreshInbox() {
+  if (state.isRoomSession) return;
+  try {
+    const data = await api('/api/inbox');
+    state.friends = data.friends || [];
+    state.requests = data.requests || [];
+    renderRequests();
+    renderInbox();
+
+    if (state.activeFriend) {
+      const updated = state.friends.find(f => f.username === state.activeFriend.username);
+      if (updated) {
+        state.activeFriend = updated;
+        updateActiveHeader();
+      }
+    }
+  } catch (e) {}
+}
+
+function renderRequests() {
+  const sec = $('requestsSection');
+  const list = $('requestsList');
+  if (!state.requests.length) {
+    sec.classList.add('hidden');
+    return;
+  }
+  sec.classList.remove('hidden');
+  $('requestCountBadge').textContent = state.requests.length;
+  list.innerHTML = state.requests.map(r => `
+    <div class="user-row">
+      <div class="avatar sm">${avatarSvg(r.avatar)}</div>
+      <div class="user-row-info">
+        <div class="user-row-top"><b>${escapeHtml(r.name)}</b></div>
+        <div class="user-row-sub"><span>@${escapeHtml(r.username)}</span></div>
+      </div>
+      <div class="row-actions">
+        <button class="mini-pill-btn solid" data-accept="${escapeHtml(r.username)}">Accept</button>
+        <button class="mini-pill-btn decline" data-decline="${escapeHtml(r.username)}" aria-label="Decline">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderInbox() {
+  const list = $('inboxList');
+  if (state.isRoomSession) {
+    $('friendCountLabel').textContent = '1';
+    const f = state.activeFriend;
+    list.innerHTML = `
+      <button class="user-row active" data-open-chat="${escapeHtml(f.username)}">
+        <div class="avatar-wrap">
+          <div class="avatar sm">${avatarSvg(f.avatar)}</div>
+          <span class="online-dot ${f.online ? 'on' : ''}"></span>
+        </div>
+        <div class="user-row-info">
+          <div class="user-row-top">
+            <b>${escapeHtml(f.name)}</b>
+            <small>Code: ${state.activeRoomCode}</small>
+          </div>
+          <div class="user-row-sub">
+            <span>${f.online ? 'Partner connected in room' : 'Waiting for partner to join…'}</span>
+          </div>
+        </div>
+      </button>
+    `;
     return;
   }
 
-  friends.forEach((f) => {
-    const row = el('button', 'user-row' + (activePeer && activePeer.id === f.id ? ' active' : ''));
-    row.type = 'button';
-
-    const avWrap = el('div', 'avatar-wrap');
-    const av = el('div', 'avatar sm');
-    av.innerHTML = avatarArt(f.gender, f.avatar);
-    const dot = el('span', 'online-dot' + (f.online ? ' on' : ''));
-    avWrap.append(av, dot);
-
-    const info = el('div', 'user-row-info');
-    const top = el('div', 'user-row-top');
-    top.append(el('b', '', f.name));
-    if (f.lastMessage) {
-      top.append(el('span', 'user-row-time', fmtTime(f.lastMessage.time)));
-    }
-
-    const sub = el('div', 'user-row-sub');
-    const previewText = f.lastMessage
-      ? `${f.lastMessage.fromMe ? 'You: ' : ''}${f.lastMessage.text}`
-      : `@${f.username} · Tap to chat`;
-    sub.append(el('span', '', previewText));
-    if (f.unread > 0) {
-      sub.append(el('span', 'unread-pill', String(f.unread)));
-    }
-
-    info.append(top, sub);
-    row.append(avWrap, info);
-    row.onclick = () => openConversation(f.id);
-    $('inboxList').append(row);
-  });
+  $('friendCountLabel').textContent = state.friends.length;
+  if (!state.friends.length) {
+    list.innerHTML = `<div class="empty-list-note">No friends yet.<br>Search a username above to send a friend request.</div>`;
+    return;
+  }
+  list.innerHTML = state.friends.map(f => {
+    const active = state.activeFriend && state.activeFriend.username === f.username;
+    const preview = f.lastMessage
+      ? (f.lastMessage.sender === state.user.username ? `You: ${f.lastMessage.preview}` : f.lastMessage.preview)
+      : `@${f.username}`;
+    const timeStr = f.lastMessage ? formatTime(f.lastMessage.at) : '';
+    return `
+      <button class="user-row ${active ? 'active' : ''}" data-open-chat="${escapeHtml(f.username)}">
+        <div class="avatar-wrap aura-ring-wrap" ${f.aura ? `data-aura="${escapeHtml(f.aura)}"` : ''}>
+          <div class="avatar sm">${avatarSvg(f.avatar)}</div>
+          <span class="online-dot ${f.online ? 'on' : ''}"></span>
+        </div>
+        <div class="user-row-info">
+          <div class="user-row-top">
+            <b>${escapeHtml(f.name)}</b>
+            <small>${timeStr}</small>
+          </div>
+          <div class="user-row-sub">
+            <span>${escapeHtml(preview)}</span>
+            ${f.unread > 0 ? `<span class="unread-pill">${f.unread}</span>` : ''}
+          </div>
+        </div>
+      </button>
+    `;
+  }).join('');
 }
 
 let searchDebounce = null;
-$('userSearchInput').addEventListener('input', (e) => {
-  const q = e.target.value.trim();
+$('userSearchInput').oninput = () => {
+  const q = $('userSearchInput').value.trim();
   $('clearSearchBtn').classList.toggle('hidden', !q);
   clearTimeout(searchDebounce);
   if (!q) {
     $('searchResultsBox').classList.add('hidden');
     return;
   }
-  searchDebounce = setTimeout(() => {
-    socket.emit('users-search', q, (res) => {
-      if (res.error) return;
-      renderSearchResults(res.results || []);
-    });
-  }, 200);
-});
+  if (state.isRoomSession) {
+    toast('Friend search is available when signed in with an account');
+    return;
+  }
+  searchDebounce = setTimeout(async () => {
+    try {
+      const data = await api(`/api/users/search?q=${encodeURIComponent(q)}`);
+      renderSearchResults(data.users || []);
+    } catch (e) {}
+  }, 220);
+};
 
 $('clearSearchBtn').onclick = () => {
   $('userSearchInput').value = '';
@@ -663,1872 +709,1071 @@ $('clearSearchBtn').onclick = () => {
   $('searchResultsBox').classList.add('hidden');
 };
 
-function renderSearchResults(results) {
-  $('searchResultsBox').classList.remove('hidden');
-  $('searchResultsList').replaceChildren();
-
-  if (!results.length) {
-    $('searchResultsList').append(el('div', 'empty-list-hint', 'No matching users found.'));
+function renderSearchResults(users) {
+  const box = $('searchResultsBox');
+  const list = $('searchResultsList');
+  box.classList.remove('hidden');
+  if (!users.length) {
+    list.innerHTML = `<div class="empty-list-note">No user found with that username.</div>`;
     return;
   }
-
-  results.forEach((u) => {
-    const row = el('div', 'user-row');
-    const av = el('div', 'avatar sm');
-    av.innerHTML = avatarArt(u.gender, u.avatar);
-
-    const info = el('div', 'user-row-info');
-    const top = el('div', 'user-row-top');
-    top.append(el('b', '', u.name));
-    const sub = el('div', 'user-row-sub');
-    sub.append(el('span', '', `@${u.username}`));
-    info.append(top, sub);
-
-    const acts = el('div', 'row-actions');
+  list.innerHTML = users.map(u => {
+    let actionHtml = '';
     if (u.relation === 'friend') {
-      const chatBtn = el('button', 'mini-pill-btn icon-only-pill'); chatBtn.title = 'Open Chat'; chatBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>';
-      chatBtn.onclick = () => {
-        $('clearSearchBtn').click();
-        openConversation(u.id);
-      };
-      acts.append(chatBtn);
-    } else if (u.relation === 'incoming') {
-      const accBtn = el('button', 'mini-pill-btn solid icon-only-pill'); accBtn.title = 'Accept'; accBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-      accBtn.onclick = () => {
-        socket.emit('friend-accept', u.id, (res) => {
-          if (res.error) return showToast(res.error);
-          inboxData = res.inbox;
-          renderSidebar();
-          $('userSearchInput').dispatchEvent(new Event('input'));
-          showToast(`Accepted ${u.name}'s request!`);
-        });
-      };
-      acts.append(accBtn);
+      actionHtml = `<button class="mini-pill-btn solid" data-open-chat="${escapeHtml(u.username)}">Message</button>`;
     } else if (u.relation === 'outgoing') {
-      const pendBtn = el('button', 'mini-pill-btn icon-only-pill'); pendBtn.title = 'Cancel Request'; pendBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
-      pendBtn.onclick = () => {
-        socket.emit('friend-cancel', u.id, (res) => {
-          if (res.error) return showToast(res.error);
-          inboxData = res.inbox;
-          renderSidebar();
-          $('userSearchInput').dispatchEvent(new Event('input'));
-          showToast('Request cancelled');
-        });
-      };
-      acts.append(pendBtn);
+      actionHtml = `<span class="mini-pill-btn">Requested</span>`;
+    } else if (u.relation === 'incoming') {
+      actionHtml = `<button class="mini-pill-btn solid" data-accept="${escapeHtml(u.username)}">Accept</button>`;
     } else {
-      const addBtn = el('button', 'mini-pill-btn solid icon-only-pill'); addBtn.title = 'Add Friend'; addBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>';
-      addBtn.onclick = () => {
-        socket.emit('friend-request', u.username, (res) => {
-          if (res.error) return showToast(res.error);
-          inboxData = res.inbox;
-          renderSidebar();
-          $('userSearchInput').dispatchEvent(new Event('input'));
-          showToast(res.status === 'accepted' ? `You and ${u.name} are now friends!` : `Friend request sent to ${u.name}`);
-        });
-      };
-      acts.append(addBtn);
+      actionHtml = `<button class="mini-pill-btn solid" data-add-friend="${escapeHtml(u.username)}">+ Add Friend</button>`;
     }
-
-    row.append(av, info, acts);
-    $('searchResultsList').append(row);
-  });
+    return `
+      <div class="user-row">
+        <div class="avatar sm">${avatarSvg(u.avatar)}</div>
+        <div class="user-row-info">
+          <div class="user-row-top"><b>${escapeHtml(u.name)}</b></div>
+          <div class="user-row-sub"><span>@${escapeHtml(u.username)}</span></div>
+        </div>
+        <div class="row-actions">${actionHtml}</div>
+      </div>
+    `;
+  }).join('');
 }
 
-/* ---------- Open Conversation & Mobile Slide Toggle ---------- */
-function openConversation(peerId) {
-  socket.emit('open-chat', peerId, (res) => {
-    if (res.error) return showToast(res.error);
-
-    activePeer = res.peer;
-    activeRoomKey = res.roomKey;
-    peerTyping = false;
-    setReply(null);
-
-    // Clear unread badge locally
-    const fEntry = inboxData.friends.find((f) => f.id === peerId);
-    if (fEntry) fEntry.unread = 0;
-    renderSidebar();
-
-    // Switch mobile view to full-screen chat
-    $('messengerShell').classList.add('mobile-chat-open');
-    $('emptyChatState').classList.add('hidden');
-    $('activeChatView').classList.remove('hidden');
-
-    Object.values(items).forEach((it) => clearTimeout(it.vanishTimer));
-    $('msgs').innerHTML = '';
-    Object.keys(items).forEach((k) => delete items[k]);
-
-    res.history.forEach(render);
-    applyWeather(res.weather || 'clear', null);
-    updatePeerMood(activePeer.mood || '');
-    updateChatHeader();
-    if (activePeer.online) triggerPresenceConfetti(activePeer.name);
-    markSeen();
-
-    if (res.game) {
-      gameState = res.game;
-      activeGame = res.game.type;
-      renderGame(res.game);
-    } else {
-      gameState = null;
-      activeGame = null;
-      $('gameStage').classList.add('hidden');
+document.addEventListener('click', async e => {
+  const addBtn = e.target.closest('[data-add-friend]');
+  if (addBtn) {
+    const to = addBtn.dataset.addFriend;
+    try {
+      await api('/api/friends/request', { method: 'POST', body: JSON.stringify({ to }) });
+      toast(`Friend request sent to @${to}`);
+      $('userSearchInput').dispatchEvent(new Event('input'));
+    } catch (err) {
+      toast(err.message);
     }
-
-    resizeCanvas();
-    if (window.innerWidth > 768) $('input').focus();
-  });
-}
-
-$('backToInboxBtn').onclick = () => {
-  if (isQuickRoomMode) {
-    leaveQuickRoomSession();
     return;
   }
-  $('messengerShell').classList.remove('mobile-chat-open');
-  if (activePeer) {
-    socket.emit('typing', { peerId: activePeer.id, typing: false });
+
+  const accBtn = e.target.closest('[data-accept]');
+  if (accBtn) {
+    const from = accBtn.dataset.accept;
+    try {
+      await api('/api/friends/accept', { method: 'POST', body: JSON.stringify({ from }) });
+      toast(`You are now friends with @${from}`);
+      $('clearSearchBtn').click();
+      await refreshInbox();
+    } catch (err) {
+      toast(err.message);
+    }
+    return;
   }
-  activePeer = null;
-  activeRoomKey = '';
-  renderSidebar();
-};
 
-/* ---------- Chat Header & Presence ---------- */
-let peerTyping = false;
+  const decBtn = e.target.closest('[data-decline]');
+  if (decBtn) {
+    const from = decBtn.dataset.decline;
+    try {
+      await api('/api/friends/decline', { method: 'POST', body: JSON.stringify({ from }) });
+      await refreshInbox();
+    } catch (err) {}
+    return;
+  }
 
-function updateChatHeader(reconnecting) {
-  if (!activePeer) return;
-  $('peerName').textContent = activePeer.name;
-  $('avatar').innerHTML = avatarArt(activePeer.gender, activePeer.avatar);
-  $('myPortrait').innerHTML = avatarArt(currentAccount?.gender, currentAccount?.avatar);
-  $('peerPortrait').innerHTML = avatarArt(activePeer.gender, activePeer.avatar);
-  $('myDisplayName').textContent = currentAccount?.name || 'You';
-  $('friendDisplayName').textContent = activePeer.name;
+  const openBtn = e.target.closest('[data-open-chat]');
+  if (openBtn) {
+    const username = openBtn.dataset.openChat;
+    const friend = state.isRoomSession
+      ? state.activeFriend
+      : state.friends.find(f => f.username === username);
+    if (friend) openConversation(friend);
+  }
+});
 
-  const connected = socket.connected && activePeer.online && !reconnecting;
-  $('duoConnection').classList.toggle('connected', connected);
-  $('connectionLabel').textContent = !socket.connected ? 'Reconnecting…' : connected ? 'Connected' : 'Offline';
+async function openConversation(friend) {
+  state.activeFriend = friend;
+  state.replyTo = null;
+  $('replyBar').classList.add('hidden');
+  $('typingBubble').classList.add('hidden');
 
-  const s = $('status');
-  s.textContent = reconnecting ? 'Reconnecting…' : peerTyping ? 'typing…' : activePeer.online ? 'Online' : 'Offline';
-  s.className = activePeer.online && !reconnecting ? 'on' : 'off';
-  $('onlineDot').className = 'online-dot' + (activePeer.online && !reconnecting ? ' on' : '');
-  $('typingBubble').classList.toggle('hidden', !peerTyping);
-  if (peerTyping) scrollDown();
+  $('emptyChatState').classList.add('hidden');
+  $('activeChatView').classList.remove('hidden');
+  $('messengerShell').classList.add('mobile-chat-open');
+
+  updateActiveHeader();
+  renderInbox();
+
+  if (state.isRoomSession) {
+    renderMessages();
+    return;
+  }
+
+  try {
+    const data = await api(`/api/messages/${encodeURIComponent(friend.username)}`);
+    state.messages = data.messages || [];
+    renderMessages();
+    socket.emit('chat:seen', { withUser: friend.username });
+    await refreshInbox();
+  } catch (err) {
+    toast(err.message);
+  }
 }
 
-function updatePeerMood(mood) {
+function updateActiveHeader() {
+  const f = state.activeFriend;
+  if (!f) return;
+
+  $('myPortrait').innerHTML = avatarSvg(state.user.avatar);
+  $('myDisplayName').textContent = state.user.name;
+
+  $('peerPortrait').innerHTML = avatarSvg(f.avatar);
+  $('friendDisplayName').textContent = f.name;
+  $('avatar').innerHTML = avatarSvg(f.avatar);
+  $('peerName').textContent = f.name;
+
   const badge = $('peerMoodBadge');
-  const aura = inferAuraFromMood(mood);
-  applyAuraClass($('headerPeerAuraWrap'), aura);
-  applyAuraClass($('peerPortrait'), aura);
-  AURA_KEYS.forEach((k) => badge.classList.remove('aura-badge-' + k));
-  if (mood) {
-    badge.textContent = mood;
-    if (aura) badge.classList.add('aura-badge-' + aura);
+  if (f.mood) {
+    const svg = MOOD_ICONS[f.mood] || '';
+    badge.innerHTML = `${svg}<span>${escapeHtml(f.mood)}</span>`;
     badge.classList.remove('hidden');
   } else {
     badge.classList.add('hidden');
   }
+
+  if (f.aura) $('headerPeerAuraWrap').dataset.aura = f.aura;
+  else delete $('headerPeerAuraWrap').dataset.aura;
+
+  setOnlineStatus(f.online, f.lastSeen);
 }
 
-/* ---------- Socket Real-Time Social & Chat Events ---------- */
-socket.on('inbox-sync', (data) => {
-  inboxData = data;
-  renderSidebar();
-});
-
-socket.on('friend-request-received', ({ from }) => {
-  beep(740);
-  showToast(`👋 ${from.name} (@${from.username}) sent you a friend request!`);
-});
-
-socket.on('friend-accepted', ({ by }) => {
-  beep(880);
-  showToast(`🎉 ${by.name} accepted your friend request!`);
-});
-
-socket.on('friend-presence', ({ userId, online, mood, name, gender, avatar }) => {
-  const f = inboxData.friends.find((item) => item.id === userId);
-  if (f) {
-    f.online = online;
-    if (mood !== undefined) f.mood = mood;
-    if (name) f.name = name;
-    if (gender) f.gender = gender;
-    if (avatar !== undefined) f.avatar = avatar;
-    renderSidebar();
+function setOnlineStatus(online, lastSeen) {
+  $('onlineDot').classList.toggle('on', !!online);
+  $('status').className = online ? 'on' : 'off';
+  if (state.isRoomSession && !online) {
+    $('status').textContent = `Share code ${state.activeRoomCode} to connect`;
+  } else {
+    $('status').textContent = online ? 'Active now' : `Last seen ${formatTime(lastSeen)}`;
   }
-  if (activePeer && activePeer.id === userId) {
-    const wasOffline = !activePeer.online;
-    activePeer.online = online;
-    if (online && wasOffline) {
-      triggerPresenceConfetti(activePeer.name);
-    }
-    if (name) activePeer.name = name;
-    if (gender) activePeer.gender = gender;
-    if (avatar !== undefined) activePeer.avatar = avatar;
-    if (mood !== undefined) {
-      activePeer.mood = mood;
-      updatePeerMood(online ? mood : '');
-    }
-    if (!online) peerTyping = false;
-    updateChatHeader();
-    if (gameState) renderGame(gameState);
-  }
-});
+  $('connectionLabel').classList.toggle('live', !!online);
+  $('connectionLabel').textContent = online ? 'Live Connected' : (state.isRoomSession ? 'Waiting in Room' : 'Offline');
+}
 
-socket.on('typing', ({ from, typing }) => {
-  if (activePeer && activePeer.id === from) {
-    peerTyping = typing;
-    updateChatHeader();
-  }
-});
-
-socket.on('weather', ({ roomKey, weather, by }) => {
-  if (roomKey === activeRoomKey) {
-    applyWeather(weather, by || activePeer?.name || 'Your friend');
-  }
-});
-
-socket.on('nudge', ({ fromId, fromName }) => {
-  beep(620);
-  showToast(`🔔 ${fromName} nudged you!`);
-  if (activePeer && activePeer.id === fromId) {
-    triggerShake();
-  }
-});
-
-$('nudgeBtn').onclick = () => {
-  if (!activePeer) return;
-  socket.emit('nudge', { peerId: activePeer.id });
-  triggerShake();
-  showToast(`🔔 You nudged ${activePeer.name}!`);
+$('backToInboxBtn').onclick = () => {
+  $('messengerShell').classList.remove('mobile-chat-open');
 };
 
-function triggerShake() {
-  const c = $('activeChatView');
-  c.classList.remove('shake');
-  void c.offsetWidth;
-  c.classList.add('shake');
-}
-
-/* ---------- Vanish & Spoiler Toggles ---------- */
-function updateModeStrip() {
-  $('vanishBtn').classList.toggle('active', vanishMode);
-  $('spoilerBtn').classList.toggle('active', spoilerMode);
-  $('vanishTag').classList.toggle('hidden', !vanishMode);
-  $('spoilerTag').classList.toggle('hidden', !spoilerMode);
-  $('modeStrip').classList.toggle('hidden', !vanishMode && !spoilerMode);
-}
-$('vanishBtn').onclick = () => { vanishMode = !vanishMode; updateModeStrip(); };
-$('spoilerBtn').onclick = () => { spoilerMode = !spoilerMode; updateModeStrip(); };
-
-/* ---------- Rendering Messages ---------- */
-const TICKS = { sending: '🕒', sent: '✓', delivered: '✓✓', seen: '✓✓' };
-function setStatus(id, status) {
-  const it = items[id];
-  if (!it) return;
-  it.m.status = status;
-  if (it.tick) {
-    it.tick.textContent = TICKS[status] || '✓';
-    it.tick.className = 'tick ' + status;
+$('activeRoomCodeBadge').onclick = async () => {
+  if (!state.activeRoomCode) return;
+  try {
+    await navigator.clipboard.writeText(state.activeRoomCode);
+    toast(`Room code ${state.activeRoomCode} copied`);
+  } catch (e) {
+    toast(`Room code: ${state.activeRoomCode}`);
   }
-  if (status === 'seen' && it.m.vanish && !it.vanishTimer) {
-    startVanishCountdown(id);
-  }
-}
+};
 
-function startVanishCountdown(id) {
-  const it = items[id];
-  if (!it || it.vanishTimer) return;
-  it.vanishTimer = setTimeout(() => {
-    it.el.classList.add('vanishing');
-    setTimeout(() => {
-      it.el.remove();
-      delete items[id];
-    }, 500);
-  }, 10000);
-}
+$('leaveRoomBtn').onclick = () => {
+  socket.disconnect();
+  state.isRoomSession = false;
+  state.activeRoomCode = '';
+  state.activeFriend = null;
+  $('app').classList.add('hidden');
+  $('auth').classList.remove('hidden');
+  setAuthMode('room');
+};
 
-function openImage(src) {
-  const o = el('div', 'lb');
-  const i = el('img');
-  i.src = src;
-  o.append(i);
-  o.onclick = () => o.remove();
-  document.body.append(o);
-}
-
-function render(m) {
-  if (items[m.id]) return;
-  const mine = m.from === cid;
-  const d = el(
-    'div',
-    'm ' + (mine ? 'me' : 'them') + (m.spoiler ? ' spoiler' : '') + (m.reaction ? ' has-react' : '')
-  );
-  d.dataset.id = m.id;
-
-  const rBar = el('div', 'react-bar');
-  ['❤️', '😂', '👍', '😮', '😢', '🔥', '🤲'].forEach((emo) => {
-    const rb = el('button', '', emo);
-    rb.onclick = (e) => {
-      e.stopPropagation();
-      if (!activePeer) return;
-      socket.emit('react', { peerId: activePeer.id, id: m.id, emoji: emo });
-      applyReaction(m.id, emo);
-    };
-    rBar.append(rb);
-  });
-  d.append(rBar);
-
-  if (m.spoiler) {
-    const sb = el('div', 'spoiler-badge', '👁️‍🗨️ Tap to reveal spoiler');
-    d.append(sb);
-    d.onclick = (e) => {
-      if (e.target.closest('button')) return;
-      d.classList.toggle('revealed');
-      sb.textContent = d.classList.contains('revealed') ? '👁️ Spoiler revealed' : '👁️‍🗨️ Tap to reveal spoiler';
-    };
-  }
-
-  if (m.reply) {
-    const q = el('div', 'q');
-    q.append(el('b', '', m.reply.name), el('span', '', m.reply.text));
-    d.append(q);
-  }
-
-  if (m.image) {
-    const i = el('img', 'pic');
-    i.src = m.image;
-    i.onclick = (e) => {
-      if (m.spoiler && !d.classList.contains('revealed')) return;
-      e.stopPropagation();
-      openImage(m.image);
-    };
-    i.onload = scrollDown;
-    d.append(i);
-  }
-
-  if (m.audio) {
-    d.append(buildVoicePlayer(m.audio, m.audioDuration || 0, m.audioMorph || 'normal'));
-  }
-  if (m.widget) {
-    d.append(buildInteractiveWidget(m));
-  }
-
-  if (m.text) d.append(el('div', 'txt', m.text));
-
-  const meta = el('div', 'meta');
-  if (m.vanish) {
-    meta.append(el('span', 'vanish-indicator', '⏱️ 10s'));
-  }
-
-  const rb = el('button', 'act-btn');
-  rb.innerHTML =
-    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>';
-  rb.title = 'Reply';
-  rb.onclick = (e) => {
-    e.stopPropagation();
-    setReply({ name: m.name, text: m.spoiler ? '🔒 Spoiler message' : m.audio ? '🎤 Voice message' : m.text || '📷 Photo' });
-  };
-  meta.append(rb);
-  if (m.edited) meta.append(el('span', 'edited-label', 'edited'));
-  meta.append(el('span', '', fmtTime(m.time)));
-
-  const menuBtn = el('button', 'act-btn message-menu-btn', '⋯');
-  menuBtn.title = 'Message actions';
-  const actionMenu = el('div', 'message-actions hidden');
-  const addAction = (label, fn, danger = false) => {
-    const b = el('button', danger ? 'danger-text' : '', label);
-    b.onclick = (e) => {
-      e.stopPropagation();
-      actionMenu.classList.add('hidden');
-      fn();
-    };
-    actionMenu.append(b);
-  };
-  if (mine && m.text && !m.image && !m.vanish) {
-    addAction('✎ Edit message', () => editMessage(m.id));
-  }
-  if (mine) {
-    addAction(
-      '⌫ Delete for everyone',
-      () => {
-        if (activePeer && confirm('Delete this message for both people?')) {
-          socket.emit('delete-message', { peerId: activePeer.id, id: m.id }, (res) => {
-            if (res && res.error) showToast(res.error);
-          });
-        }
-      },
-      true
-    );
-  }
-  addAction('Hide for me', () => {
-    d.remove();
-    delete items[m.id];
-  });
-  menuBtn.onclick = (e) => {
-    e.stopPropagation();
-    document.querySelectorAll('.message-actions').forEach((x) => {
-      if (x !== actionMenu) x.classList.add('hidden');
-    });
-    actionMenu.classList.toggle('hidden');
-  };
-  meta.append(menuBtn);
-  d.append(actionMenu);
-
-  let tick = null;
-  if (mine) {
-    tick = el('span', 'tick');
-    meta.append(tick);
-  }
-  d.append(meta);
-
-  if (m.reaction) {
-    const rp = el('div', 'reaction-pill', m.reaction);
-    d.append(rp);
-  }
-
-  $('msgs').append(d);
-  items[m.id] = { m, el: d, tick, seenSent: false, vanishTimer: null };
-  if (mine) setStatus(m.id, m.status);
-  if (m.status === 'seen' && m.vanish) startVanishCountdown(m.id);
-  scrollDown();
-}
-
-function editMessage(id) {
-  const it = items[id];
-  if (!it || !activePeer || it.m.from !== cid || !it.m.text) return;
-  const next = prompt('Edit your message:', it.m.text);
-  if (next === null || !next.trim() || next.trim() === it.m.text) return;
-  socket.emit('edit-message', { peerId: activePeer.id, id, text: next.trim() }, (res) => {
-    if (res && res.error) showToast(res.error);
-    else showToast('Message updated ✦');
-  });
-}
-
-socket.on('message-edited', ({ roomKey, id, text, edited }) => {
-  if (roomKey !== activeRoomKey) return;
-  const it = items[id];
-  if (!it) return;
-  it.m.text = text;
-  it.m.edited = edited;
-  const txt = it.el.querySelector('.txt');
-  if (txt) txt.textContent = text;
-  let label = it.el.querySelector('.edited-label');
-  if (!label) {
-    label = el('span', 'edited-label', 'edited');
-    const meta = it.el.querySelector('.meta');
-    meta.insertBefore(label, meta.querySelector('.tick'));
-  }
-});
-
-socket.on('message-deleted', ({ roomKey, id }) => {
-  if (roomKey !== activeRoomKey) return;
-  const it = items[id];
-  if (it) {
-    it.el.remove();
-    delete items[id];
-  }
-  showToast('Message deleted');
-});
-
-function applyReaction(id, emoji) {
-  const it = items[id];
-  if (!it) return;
-  it.m.reaction = emoji;
-  triggerReactionBlast(emoji);
-  let pill = it.el.querySelector('.reaction-pill');
-  if (!pill) {
-    pill = el('div', 'reaction-pill', emoji);
-    it.el.append(pill);
-    it.el.classList.add('has-react');
-  } else {
-    pill.textContent = emoji;
-  }
-}
-
-function scrollDown() {
-  const c = $('msgs');
-  c.scrollTop = c.scrollHeight;
-}
-
-/* ---------- Sending & Receiving Messages ---------- */
-function updateSidebarPreview(peerId, text, time, fromMe, incrementUnread) {
-  const f = inboxData.friends.find((item) => item.id === peerId);
-  if (!f) return;
-  f.lastMessage = { text, time, fromMe };
-  if (incrementUnread) f.unread = (f.unread || 0) + 1;
-  inboxData.friends.sort((a, b) => (b.lastMessage?.time || 0) - (a.lastMessage?.time || 0));
-  renderSidebar();
-}
-
-function send(image) {
-  if (!activePeer || !socket.connected) return showToast('Select an online friend or wait to reconnect.');
-  const input = $('input');
-  const text = image ? '' : input.value.trim();
-  if (!text && !image) return;
-
-  const now = Date.now();
-  const m = {
-    id: cid.slice(0, 6) + rnd(),
-    to: activePeer.id,
-    text,
-    image: image || null,
-    reply: replyTo,
-    vanish: vanishMode,
-    spoiler: spoilerMode
-  };
-
-  playSendSound();
-  render({ ...m, from: cid, name: currentAccount.name, time: now, status: 'sending' });
-  updateSidebarPreview(activePeer.id, spoilerMode ? '🔒 Spoiler message' : image ? '📷 Photo' : text, now, true, false);
-
-  socket.emit('msg', m, (status) => {
-    if (status && status.error) return showToast(status.error);
-    setStatus(m.id, status);
-  });
-
-  if (!image) {
-    input.value = '';
-    input.style.height = '40px';
-  }
-  setReply(null);
-  stopTyping();
-}
-
-$('send').onclick = () => send();
-$('input').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
-    e.preventDefault();
-    send();
-  }
-});
-let typingTimer;
-$('input').addEventListener('input', (e) => {
-  playKeyTick();
-  e.target.style.height = '40px';
-  e.target.style.height = Math.min(e.target.scrollHeight, 110) + 'px';
-  if (!activePeer) return;
-  socket.emit('typing', { peerId: activePeer.id, typing: true });
-  clearTimeout(typingTimer);
-  typingTimer = setTimeout(stopTyping, 1500);
-});
-function stopTyping() {
-  clearTimeout(typingTimer);
-  if (activePeer) socket.emit('typing', { peerId: activePeer.id, typing: false });
-}
-
-socket.on('msg', (m) => {
-  const peerId = m.from === cid ? m.to : m.from;
-  const isCurrentChat = activePeer && activePeer.id === peerId && !$('activeChatView').classList.contains('hidden');
-
-  updateSidebarPreview(
-    peerId,
-    m.spoiler ? '🔒 Spoiler message' : m.audio ? '🎤 Voice message' : m.image ? '📷 Photo' : m.text,
-    m.time,
-    m.from === cid,
-    !isCurrentChat && m.from !== cid
-  );
-
-  if (isCurrentChat) {
-    render(m);
-    if (document.hidden || !document.hasFocus()) beep(880);
-    markSeen();
-  } else if (m.from !== cid) {
-    beep(880);
-    showToast(`💬 ${m.name}: ${m.spoiler ? 'Spoiler message' : m.audio ? 'Sent a voice message' : m.image ? 'Sent a photo' : m.text.slice(0, 40)}`);
-  }
-});
-
-socket.on('status', ({ roomKey, ids, status }) => {
-  if (roomKey === activeRoomKey) {
-    ids.forEach((id) => setStatus(id, status));
-  }
-});
-
-socket.on('react', ({ roomKey, id, emoji }) => {
-  if (roomKey === activeRoomKey) applyReaction(id, emoji);
-});
-
-function markSeen() {
-  if (!activePeer || document.hidden || !document.hasFocus()) return;
-  const ids = Object.values(items)
-    .filter((it) => it.m.from === activePeer.id && !it.seenSent)
-    .map((it) => {
-      it.seenSent = true;
-      if (it.m.vanish) startVanishCountdown(it.m.id);
-      return it.m.id;
-    });
-  if (ids.length) socket.emit('seen', { peerId: activePeer.id, ids });
-}
-addEventListener('focus', markSeen);
-document.addEventListener('visibilitychange', markSeen);
-
-/* ---------- Voice Note Recorder & Custom Waveform Audio Player ---------- */
-function fmtDuration(sec) {
-  const s = Math.max(0, Math.round(sec || 0));
-  const m = Math.floor(s / 60);
-  const rem = s % 60;
-  return `${m}:${rem < 10 ? '0' : ''}${rem}`;
-}
-
-function buildVoicePlayer(audioSrc, initialDuration, morph = 'normal') {
-  const wrap = el('div', 'voice-note-player');
-  const playBtn = el('button', 'voice-play-btn', '▶');
-  playBtn.type = 'button';
-  playBtn.title = 'Play voice note';
-
-  const waveWrap = el('div', 'voice-wave-wrap');
-  const barsRow = el('div', 'voice-bars');
-  const heights = [38, 65, 92, 54, 80, 100, 46, 74, 88, 60, 95, 50, 72, 85, 42, 68, 90, 56, 76, 48];
-  const barEls = heights.map((h) => {
-    const bar = document.createElement('i');
-    bar.style.height = `${h}%`;
-    barsRow.append(bar);
-    return bar;
-  });
-
-  const morphLabels = {
-    normal: '🎤 Voice',
-    chipmunk: '🐿️ Helium',
-    deep: '🦍 Deep',
-    robot: '🤖 Echo',
-    radio: '📻 Retro'
-  };
-  const metaRow = el('div', 'voice-meta-row');
-  const timeLbl = el('span', '', fmtDuration(initialDuration));
-  const tagLbl = el('span', morph !== 'normal' ? 'voice-morph-badge' : '', morphLabels[morph] || '🎤 Voice');
-  metaRow.append(timeLbl, tagLbl);
-
-  waveWrap.append(barsRow, metaRow);
-  wrap.append(playBtn, waveWrap);
-
-  const audioObj = new Audio(audioSrc);
-  audioObj.preload = 'metadata';
-  if (morph === 'chipmunk') {
-    audioObj.preservesPitch = false;
-    audioObj.playbackRate = 1.38;
-  } else if (morph === 'deep') {
-    audioObj.preservesPitch = false;
-    audioObj.playbackRate = 0.76;
-  } else if (morph === 'robot') {
-    audioObj.preservesPitch = false;
-    audioObj.playbackRate = 0.92;
-  } else if (morph === 'radio') {
-    audioObj.playbackRate = 1.06;
-  }
-
-  audioObj.addEventListener('loadedmetadata', () => {
-    if (isFinite(audioObj.duration) && audioObj.duration > 0) {
-      timeLbl.textContent = fmtDuration(audioObj.duration);
-    }
-  });
-
-  audioObj.addEventListener('timeupdate', () => {
-    const dur = isFinite(audioObj.duration) && audioObj.duration > 0 ? audioObj.duration : initialDuration || 1;
-    const ratio = Math.min(1, audioObj.currentTime / dur);
-    const activeCount = Math.round(ratio * barEls.length);
-    barEls.forEach((b, idx) => b.classList.toggle('played', idx < activeCount));
-    timeLbl.textContent = fmtDuration(audioObj.currentTime);
-  });
-
-  audioObj.addEventListener('ended', () => {
-    playBtn.textContent = '▶';
-    barEls.forEach((b) => b.classList.remove('played'));
-    const dur = isFinite(audioObj.duration) && audioObj.duration > 0 ? audioObj.duration : initialDuration;
-    timeLbl.textContent = fmtDuration(dur);
-  });
-
-  barsRow.onclick = (e) => {
-    e.stopPropagation();
-    const rect = barsRow.getBoundingClientRect();
-    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    if (isFinite(audioObj.duration) && audioObj.duration > 0) {
-      audioObj.currentTime = pct * audioObj.duration;
-    }
-  };
-
-  playBtn.onclick = (e) => {
-    e.stopPropagation();
-    if (audioObj.paused) {
-      document.querySelectorAll('audio').forEach((a) => a.pause());
-      audioObj.play().then(() => {
-        playBtn.textContent = '⏸';
-      }).catch(() => showToast('Could not play voice message.'));
-    } else {
-      audioObj.pause();
-      playBtn.textContent = '▶';
-    }
-  };
-
-  return wrap;
-}
-
-function sendVoiceNote(audioDataUrl, durationSec) {
-  if (!activePeer || !socket.connected) return showToast('Select an online partner or wait to reconnect.');
-  const morph = $('voiceMorphSelect') ? $('voiceMorphSelect').value : 'normal';
-  const now = Date.now();
-  const m = {
-    id: cid.slice(0, 6) + rnd(),
-    to: activePeer.id,
-    text: '',
-    image: null,
-    audio: audioDataUrl,
-    audioDuration: Math.max(1, Math.round(durationSec)),
-    audioMorph: morph,
-    reply: replyTo,
-    vanish: vanishMode,
-    spoiler: spoilerMode
-  };
-
-  playSendSound();
-  render({ ...m, from: cid, name: currentAccount.name, time: now, status: 'sending' });
-  updateSidebarPreview(activePeer.id, spoilerMode ? '🔒 Spoiler message' : '🎤 Voice message', now, true, false);
-
-  socket.emit('msg', m, (status) => {
-    if (status && status.error) return showToast(status.error);
-    setStatus(m.id, status);
-  });
-  setReply(null);
-}
-
-let mediaRecorder = null;
-let voiceChunks = [];
-let voiceStream = null;
-let voiceStartTime = 0;
-let voiceTimerInterval = null;
-let voiceShouldSend = false;
-
-function stopVoiceUI() {
-  clearInterval(voiceTimerInterval);
-  $('voiceRecBar').classList.add('hidden');
-  $('voiceBtn').classList.remove('active');
-  if (voiceStream) {
-    voiceStream.getTracks().forEach((t) => t.stop());
-    voiceStream = null;
-  }
-}
-
+/* =========================================================
+   VOICE NOTE RECORDING & VOICE MORPHING (Normal, Female, Old, Baby)
+   ========================================================= */
 $('voiceBtn').onclick = async () => {
-  if (!activePeer || !socket.connected) return showToast('Open a chat first to send a voice note.');
-  if (mediaRecorder && mediaRecorder.state === 'recording') {
-    voiceShouldSend = true;
-    mediaRecorder.stop();
+  if (!state.activeFriend) return;
+  if (state.voiceRecorder && state.voiceRecorder.state === 'recording') {
+    stopAndSendVoice();
     return;
   }
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    return showToast('Microphone is not supported in this browser.');
-  }
   try {
-    voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    voiceChunks = [];
-    voiceShouldSend = false;
-    mediaRecorder = new MediaRecorder(voiceStream);
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    state.voiceStream = stream;
+    state.voiceChunks = [];
+    state.voiceSeconds = 0;
 
-    mediaRecorder.ondataavailable = (e) => {
-      if (e.data && e.data.size > 0) voiceChunks.push(e.data);
+    const recorder = new MediaRecorder(stream);
+    state.voiceRecorder = recorder;
+    recorder.ondataavailable = e => {
+      if (e.data && e.data.size > 0) state.voiceChunks.push(e.data);
     };
+    recorder.start();
 
-    mediaRecorder.onstop = () => {
-      const durationSec = (Date.now() - voiceStartTime) / 1000;
-      const shouldSend = voiceShouldSend;
-      const mimeType = mediaRecorder.mimeType || 'audio/webm';
-      stopVoiceUI();
-      if (!shouldSend || !voiceChunks.length) return;
-      if (durationSec < 0.6) return showToast('Voice note too short.');
-
-      const blob = new Blob(voiceChunks, { type: mimeType });
-      if (blob.size > 2.4 * 1024 * 1024) {
-        return showToast('Voice note is too long (max ~60 seconds).');
-      }
-      const reader = new FileReader();
-      reader.onload = () => sendVoiceNote(reader.result, durationSec);
-      reader.readAsDataURL(blob);
-    };
-
-    voiceStartTime = Date.now();
-    $('voiceRecTimer').textContent = '0:00';
     $('voiceRecBar').classList.remove('hidden');
     $('voiceBtn').classList.add('active');
-
-    voiceTimerInterval = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - voiceStartTime) / 1000);
-      $('voiceRecTimer').textContent = fmtDuration(elapsed);
-      if (elapsed >= 60 && mediaRecorder && mediaRecorder.state === 'recording') {
-        voiceShouldSend = true;
-        mediaRecorder.stop();
-      }
-    }, 300);
-
-    mediaRecorder.start();
+    $('voiceRecTimer').textContent = '0:00';
+    state.voiceTimer = setInterval(() => {
+      state.voiceSeconds++;
+      const m = Math.floor(state.voiceSeconds / 60);
+      const s = String(state.voiceSeconds % 60).padStart(2, '0');
+      $('voiceRecTimer').textContent = `${m}:${s}`;
+      if (state.voiceSeconds >= 60) stopAndSendVoice();
+    }, 1000);
   } catch (err) {
-    stopVoiceUI();
-    showToast('Microphone permission denied.');
+    toast('Microphone permission denied or unavailable');
   }
 };
+
+function cleanupVoiceRecording() {
+  clearInterval(state.voiceTimer);
+  if (state.voiceStream) {
+    state.voiceStream.getTracks().forEach(t => t.stop());
+    state.voiceStream = null;
+  }
+  state.voiceRecorder = null;
+  $('voiceRecBar').classList.add('hidden');
+  $('voiceBtn').classList.remove('active');
+}
 
 $('cancelVoiceBtn').onclick = () => {
-  if (mediaRecorder && mediaRecorder.state === 'recording') {
-    voiceShouldSend = false;
-    mediaRecorder.stop();
-  } else {
-    stopVoiceUI();
+  if (state.voiceRecorder && state.voiceRecorder.state !== 'inactive') {
+    state.voiceRecorder.onstop = null;
+    state.voiceRecorder.stop();
   }
+  cleanupVoiceRecording();
+  toast('Voice recording cancelled');
 };
 
-$('sendVoiceBtn').onclick = () => {
-  if (mediaRecorder && mediaRecorder.state === 'recording') {
-    voiceShouldSend = true;
-    mediaRecorder.stop();
-  }
-};
+async function stopAndSendVoice() {
+  const recorder = state.voiceRecorder;
+  if (!recorder || recorder.state === 'inactive') return;
+  const durationSec = Math.max(1, state.voiceSeconds);
+  const morphEffect = $('voiceMorphSelect').value || 'normal';
 
-/* ---------- Reply, Emoji & Image Upload ---------- */
-function setReply(r) {
-  replyTo = r;
-  $('replyBar').classList.toggle('hidden', !r);
-  if (r) {
-    $('rName').textContent = r.name;
-    $('rText').textContent = r.text.slice(0, 120);
-    $('input').focus();
-  }
-}
-$('rClose').onclick = () => setReply(null);
+  recorder.onstop = async () => {
+    const rawBlob = new Blob(state.voiceChunks, { type: recorder.mimeType || 'audio/webm' });
+    cleanupVoiceRecording();
 
-Array.from('😀😁😂🤣😊😍😘😎🤔😅😭😡🥳😴🤗🙄😉😇🥺😢🤲👍👎👏🙌🙏💪👋🤝❤️💔🔥✨🎉🎂🍕☕🌹⭐💯✅❌👀🚀🌙☀️🎵').forEach(
-  (ch) => {
-    const b = el('button', '', ch);
-    b.type = 'button';
-    b.onclick = () => {
-      $('input').value += ch;
-      $('input').focus();
+    const finalBlob = await applyVoiceMorphFilter(rawBlob, morphEffect);
+    const reader = new FileReader();
+    reader.onload = () => {
+      socket.emit('chat:send', {
+        to: state.activeFriend.username,
+        type: 'voice',
+        audio: reader.result,
+        voiceDuration: durationSec,
+        voiceEffect: morphEffect,
+        vanish: state.vanish,
+        spoiler: state.spoiler,
+        replyTo: state.replyTo
+      });
+      state.replyTo = null;
+      $('replyBar').classList.add('hidden');
     };
-    $('emojis').append(b);
+    reader.readAsDataURL(finalBlob);
+  };
+  recorder.stop();
+}
+
+$('sendVoiceBtn').onclick = stopAndSendVoice;
+
+/* =========================================================
+   MESSAGES RENDERING & INTERACTIONS
+   ========================================================= */
+const formatTime = ts => ts ? new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+const formatDay = ts => {
+  const d = new Date(ts);
+  const today = new Date();
+  if (d.toDateString() === today.toDateString()) return 'Today';
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+};
+const isOnlyEmoji = str => /^(\p{Extended_Pictographic}|\s){1,6}$/u.test(str.trim());
+
+function renderVoicePlayer(m) {
+  const dur = m.voiceDuration || 3;
+  const mStr = Math.floor(dur / 60);
+  const sStr = String(dur % 60).padStart(2, '0');
+  const effectLabels = { female: 'Female', old: 'Old', baby: 'Baby' };
+  const effectLabel = m.voiceEffect && m.voiceEffect !== 'normal' ? (effectLabels[m.voiceEffect] || m.voiceEffect) : '';
+  const bars = [35, 65, 90, 50, 80, 40, 95, 60, 75, 45, 85, 55, 70, 40, 60]
+    .map((h, idx) => `<i style="height:${h}%;animation-delay:${(idx * 0.06).toFixed(2)}s"></i>`).join('');
+  return `
+    <div class="voice-bubble" data-audio-src="${escapeHtml(m.audio)}">
+      <button type="button" class="voice-play-btn" aria-label="Play voice note">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+      </button>
+      <div class="voice-wave-wrap">
+        <div class="voice-bars">${bars}</div>
+        <div class="voice-meta-row">
+          <span>${mStr}:${sStr}</span>
+          ${effectLabel ? `<span class="voice-tag-pill">${escapeHtml(effectLabel)}</span>` : '<span>Voice</span>'}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderMessages() {
+  const box = $('msgs');
+  let lastDay = '';
+  box.innerHTML = state.messages.map(m => {
+    if (m.type === 'system') {
+      return `<div class="sys-banner">${escapeHtml(m.text)}</div>`;
+    }
+    const mine = m.sender === state.user.username;
+    const day = formatDay(m.at);
+    const sep = day !== lastDay ? `<div class="day-sep">${day}</div>` : '';
+    lastDay = day;
+
+    if (m.deleted) {
+      return `${sep}<div class="msg ${mine ? 'me' : 'peer'}"><div class="bubble"><span class="txt" style="opacity:.6;font-style:italic">Message unsent</span></div></div>`;
+    }
+
+    const emojiClass = m.type === 'text' && !m.replyTo && isOnlyEmoji(m.text) ? 'emoji-only' : '';
+    const reacts = Object.entries(m.reactions || {});
+    const reactHtml = reacts.length ? `<div class="reacts">${reacts.map(([u, em]) => `<span class="react" title="${escapeHtml(u)}">${em}</span>`).join('')}</div>` : '';
+    const ticks = mine ? `<span class="ticks ${m.seen ? 'seen' : ''}">${m.seen ? '✓✓' : '✓'}</span>` : '';
+    const replyHtml = m.replyTo ? `<div class="quote"><b>${escapeHtml(m.replyTo.senderName)}</b><div>${escapeHtml(m.replyTo.text)}</div></div>` : '';
+
+    let bodyHtml = '';
+    if (m.type === 'image') {
+      bodyHtml = `<img src="${m.image}" alt="Shared photo">`;
+    } else if (m.type === 'voice') {
+      bodyHtml = renderVoicePlayer(m);
+    } else if (m.type === 'game-invite') {
+      const gameNames = { tictactoe: 'Tic-Tac-Toe', rps: 'Rock Paper Scissors', connect4: 'Connect Four' };
+      const title = gameNames[m.game] || m.game;
+      const gSvg = GAME_SVGS[m.game] || '';
+      bodyHtml = `<div class="txt">${escapeHtml(m.text)}</div>
+        <div class="game-invite-card">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span class="icon-svg-wrap">${gSvg}</span>
+            <b>${escapeHtml(title)}</b>
+          </div>
+          <button class="game-action primary-action" data-launch-game="${escapeHtml(m.game)}">Join &amp; Play</button>
+        </div>`;
+    } else {
+      bodyHtml = `<div class="txt">${escapeHtml(m.text)}</div>`;
+    }
+
+    const vanishBadge = m.vanish ? `<div class="vanish-badge"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/></svg><span>Vanish</span></div>` : '';
+
+    return `${sep}
+      <div class="msg ${mine ? 'me' : 'peer'} ${emojiClass}" data-id="${m.id}">
+        <div class="acts">
+          ${REACTS.map(em => `<button data-react="${em}">${em}</button>`).join('')}
+          <button data-reply="${m.id}" title="Reply" aria-label="Reply"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg></button>
+          ${mine ? `<button data-del="${m.id}" title="Unsend" aria-label="Unsend"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>` : ''}
+        </div>
+        <div class="bubble ${m.spoiler ? 'spoiler' : ''}">${vanishBadge}${replyHtml}${bodyHtml}</div>
+        ${reactHtml}
+        <div class="meta"><span>${formatTime(m.at)}</span>${ticks}</div>
+      </div>`;
+  }).join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+function sendMessage() {
+  if (!state.activeFriend) return;
+  const text = $('input').value.trim();
+  if (!text) return;
+  socket.emit('chat:send', {
+    to: state.activeFriend.username,
+    type: 'text',
+    text,
+    vanish: state.vanish,
+    spoiler: state.spoiler,
+    replyTo: state.replyTo
+  });
+  $('input').value = '';
+  $('input').style.height = 'auto';
+  state.replyTo = null;
+  $('replyBar').classList.add('hidden');
+  socket.emit('chat:typing', { to: state.activeFriend.username, typing: false });
+}
+
+$('send').onclick = sendMessage;
+$('input').onkeydown = e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
   }
-);
-$('emojiBtn').onclick = () => $('emojis').classList.toggle('hidden');
+};
+$('input').oninput = () => {
+  if (!state.activeFriend) return;
+  $('input').style.height = 'auto';
+  $('input').style.height = Math.min($('input').scrollHeight, 96) + 'px';
+  socket.emit('chat:typing', { to: state.activeFriend.username, typing: true });
+  clearTimeout(state.typingTimer);
+  state.typingTimer = setTimeout(() => {
+    if (state.activeFriend) socket.emit('chat:typing', { to: state.activeFriend.username, typing: false });
+  }, 1200);
+};
+
+// Voice Note Playback
+let currentAudioEl = null;
+let currentPlayBtn = null;
+$('msgs').onclick = e => {
+  const voicePlay = e.target.closest('.voice-play-btn');
+  if (voicePlay) {
+    const wrap = voicePlay.closest('.voice-bubble');
+    const bars = wrap.querySelector('.voice-bars');
+    const src = wrap.dataset.audioSrc;
+
+    if (currentAudioEl && currentPlayBtn === voicePlay) {
+      currentAudioEl.pause();
+      currentAudioEl = null;
+      bars.classList.remove('playing');
+      voicePlay.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>';
+      return;
+    }
+    if (currentAudioEl) {
+      currentAudioEl.pause();
+      document.querySelectorAll('.voice-bars.playing').forEach(b => b.classList.remove('playing'));
+      document.querySelectorAll('.voice-play-btn').forEach(b => b.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>');
+    }
+    const audio = new Audio(src);
+    currentAudioEl = audio;
+    currentPlayBtn = voicePlay;
+    bars.classList.add('playing');
+    voicePlay.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+    audio.play().catch(() => toast('Unable to play audio'));
+    audio.onended = () => {
+      bars.classList.remove('playing');
+      voicePlay.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>';
+      currentAudioEl = null;
+    };
+    return;
+  }
+
+  const spoiler = e.target.closest('.bubble.spoiler');
+  if (spoiler) spoiler.classList.toggle('revealed');
+
+  const reactBtn = e.target.closest('[data-react]');
+  if (reactBtn && state.activeFriend) {
+    const id = reactBtn.closest('.msg').dataset.id;
+    socket.emit('chat:react', { to: state.activeFriend.username, id, emoji: reactBtn.dataset.react });
+  }
+
+  const replyBtn = e.target.closest('[data-reply]');
+  if (replyBtn) {
+    const m = state.messages.find(x => x.id === replyBtn.dataset.reply);
+    if (m) {
+      state.replyTo = {
+        id: m.id,
+        senderName: m.sender === state.user.username ? state.user.name : state.activeFriend.name,
+        text: m.type === 'image' ? 'Photo' : m.type === 'voice' ? 'Voice Note' : m.text
+      };
+      $('rName').textContent = state.replyTo.senderName;
+      $('rText').textContent = state.replyTo.text;
+      $('replyBar').classList.remove('hidden');
+      $('input').focus();
+    }
+  }
+
+  const delBtn = e.target.closest('[data-del]');
+  if (delBtn && state.activeFriend) {
+    socket.emit('chat:delete', { to: state.activeFriend.username, id: delBtn.dataset.del });
+  }
+
+  const gameBtn = e.target.closest('[data-launch-game]');
+  if (gameBtn) {
+    openGameModal(gameBtn.dataset.launchGame);
+  }
+};
+
+// Long-Press Empty Chat Background -> Live Heartbeat Tap
+$('msgs').addEventListener('pointerdown', e => {
+  if (e.target.closest('.msg') || !state.activeFriend) return;
+  clearTimeout(state.hbHoldTimer);
+  state.hbHoldTimer = setTimeout(() => {
+    triggerHeartbeatPulse(true);
+    toast('Live Heartbeat sent');
+  }, 480);
+});
+['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => {
+  $('msgs').addEventListener(ev, () => clearTimeout(state.hbHoldTimer));
+});
+
+$('heartbeatBtn').onclick = () => {
+  if (!state.activeFriend) return;
+  triggerHeartbeatPulse(true);
+};
+
+$('rClose').onclick = () => {
+  state.replyTo = null;
+  $('replyBar').classList.add('hidden');
+};
 
 $('imgBtn').onclick = () => $('file').click();
-$('file').onchange = (e) => {
-  const f = e.target.files[0];
-  e.target.value = '';
-  if (!f) return;
-  if (!f.type.startsWith('image/') || f.size > 15 * 1024 * 1024) {
-    return showToast('Choose an image smaller than 15 MB.');
-  }
+$('file').onchange = () => {
+  const f = $('file').files[0];
+  if (!f || !state.activeFriend) return;
   const reader = new FileReader();
   reader.onload = () => {
     const img = new Image();
     img.onload = () => {
-      const k = Math.min(1, 900 / Math.max(img.width, img.height));
       const c = document.createElement('canvas');
-      c.width = Math.round(img.width * k);
-      c.height = Math.round(img.height * k);
+      const max = 900;
+      const scale = Math.min(1, max / Math.max(img.width, img.height));
+      c.width = img.width * scale;
+      c.height = img.height * scale;
       c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-      send(c.toDataURL('image/jpeg', 0.75));
+      socket.emit('chat:send', {
+        to: state.activeFriend.username,
+        type: 'image',
+        image: c.toDataURL('image/jpeg', 0.82),
+        vanish: state.vanish,
+        spoiler: state.spoiler,
+        replyTo: state.replyTo
+      });
+      state.replyTo = null;
+      $('replyBar').classList.add('hidden');
     };
-    img.onerror = () => showToast('This image could not be opened.');
     img.src = reader.result;
   };
   reader.readAsDataURL(f);
+  $('file').value = '';
 };
+
+function updateModeStrip() {
+  $('vanishBtn').classList.toggle('active', state.vanish);
+  $('spoilerBtn').classList.toggle('active', state.spoiler);
+  $('vanishTag').classList.toggle('hidden', !state.vanish);
+  $('spoilerTag').classList.toggle('hidden', !state.spoiler);
+  $('modeStrip').classList.toggle('hidden', !state.vanish && !state.spoiler);
+}
+$('vanishBtn').onclick = () => { state.vanish = !state.vanish; updateModeStrip(); };
+$('spoilerBtn').onclick = () => { state.spoiler = !state.spoiler; updateModeStrip(); };
+
+$('emojis').innerHTML = EMOJIS.map(e => `<button type="button">${e}</button>`).join('');
+$('emojiBtn').onclick = () => $('emojis').classList.toggle('hidden');
+$('emojis').onclick = e => {
+  if (e.target.tagName === 'BUTTON') {
+    $('input').value += e.target.textContent;
+    $('input').focus();
+  }
+};
+
+/* =========================================================
+   HEADER CONTROLS & AURA / MOOD RING
+   ========================================================= */
+$('moodBtn').onclick = e => {
+  e.stopPropagation();
+  $('moodMenu').classList.toggle('hidden');
+  $('moreMenu').classList.add('hidden');
+  $('weatherMenu').classList.add('hidden');
+};
+$('roomMoodBtn').onclick = e => {
+  e.stopPropagation();
+  $('moreMenu').classList.add('hidden');
+  $('moodMenu').classList.remove('hidden');
+};
+
+$('moodMenu').onclick = e => {
+  const btn = e.target.closest('[data-mood]');
+  if (!btn) return;
+  const mood = btn.dataset.mood;
+  const aura = btn.dataset.aura || '';
+  state.myMood = mood;
+  state.myAura = aura;
+  $('myMoodIcon').innerHTML = mood ? (MOOD_ICONS[mood] || MOOD_ICONS['Chilling']) : MOOD_ICONS['Chilling'];
+  if (aura) $('sidebarMyAuraWrap').dataset.aura = aura;
+  else delete $('sidebarMyAuraWrap').dataset.aura;
+
+  $('moodMenu').classList.add('hidden');
+  socket.emit('chat:mood', { mood, aura });
+  toast(mood ? `Aura set to ${mood}` : 'Aura cleared');
+};
+
+$('weatherBtn').onclick = e => {
+  e.stopPropagation();
+  $('weatherMenu').classList.toggle('hidden');
+  $('moreMenu').classList.add('hidden');
+  $('moodMenu').classList.add('hidden');
+};
+
+$('weatherMenu').onclick = e => {
+  const btn = e.target.closest('[data-weather]');
+  if (!btn) return;
+  const w = btn.dataset.weather;
+  $('weatherMenu').classList.add('hidden');
+  setWeather(w, true);
+  toast(`Synced atmosphere: ${btn.textContent.trim()}`);
+};
+
+$('moreBtn').onclick = e => {
+  e.stopPropagation();
+  $('moreMenu').classList.toggle('hidden');
+  $('moodMenu').classList.add('hidden');
+  $('weatherMenu').classList.add('hidden');
+};
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.dropdown-wrap')) {
+    $('moodMenu').classList.add('hidden');
+    $('moreMenu').classList.add('hidden');
+    $('weatherMenu').classList.add('hidden');
+  }
+});
+
+$('themeBtn').onclick = () => {
+  document.documentElement.classList.toggle('light');
+  localStorage.setItem('dc_light', document.documentElement.classList.contains('light') ? '1' : '');
+  $('moreMenu').classList.add('hidden');
+};
+
+const openThemes = () => {
+  $('moreMenu').classList.add('hidden');
+  $('themesModal').classList.remove('hidden');
+};
+$('themePresetsBtn').onclick = openThemes;
+$('sidebarThemeBtn').onclick = openThemes;
+
+document.querySelectorAll('[data-theme-choice]').forEach(btn => {
+  btn.onclick = () => {
+    const t = btn.dataset.themeChoice;
+    document.documentElement.dataset.theme = t;
+    localStorage.setItem('dc_theme', t);
+    document.querySelectorAll('.theme-swatch').forEach(x => x.classList.toggle('active', x.dataset.themeChoice === t));
+    $('themesModal').classList.add('hidden');
+  };
+});
 
 $('clearBtn').onclick = () => {
-  if (activePeer && confirm('Clear the whole conversation for both of you?')) {
-    socket.emit('clear', { peerId: activePeer.id });
+  if (!state.activeFriend) return;
+  if (confirm(`Clear chat history with ${state.activeFriend.name}?`)) {
+    socket.emit('chat:clear', { withUser: state.activeFriend.username });
   }
-};
-socket.on('clear', ({ roomKey }) => {
-  if (roomKey === activeRoomKey) {
-    $('msgs').innerHTML = '';
-    Object.keys(items).forEach((k) => delete items[k]);
-  }
-});
-
-/* ---------- DuoPlay Mini-Games (Tic-Tac-Toe, Rock Paper Scissors, Connect Four) ---------- */
-$('gamesBtn').onclick = () => {
-  if (!activePeer) return;
-  openModal('gamesModal');
-  if (gameState) {
-    $('gamePickerGrid').classList.add('hidden');
-    $('gameStage').classList.remove('hidden');
-    renderGame(gameState);
-  } else {
-    $('gamePickerGrid').classList.remove('hidden');
-    $('gameStage').classList.add('hidden');
-  }
-};
-
-document.querySelectorAll('[data-game]').forEach((b) => {
-  b.onclick = () => {
-    if (!activePeer) return;
-    const type = b.dataset.game;
-    if (['secretvault', 'duoquiz', 'duopoll'].includes(type)) {
-      openInteractiveCreatorInStage(type);
-      return;
-    }
-    socket.emit('game-start', { peerId: activePeer.id, type }, (res) => {
-      if (res && res.error) return showToast(res.error);
-    });
-  };
-});
-
-socket.on('game-state', ({ roomKey, game }) => {
-  if (roomKey !== activeRoomKey) return;
-  gameState = game;
-  activeGame = game ? game.type : null;
-
-  if (!game) {
-    $('gameStage').classList.add('hidden');
-    $('gamePickerGrid').classList.remove('hidden');
-    return;
-  }
-
-  closeModal('themesModal');
-  openModal('gamesModal');
-  $('gamePickerGrid').classList.add('hidden');
-  $('gameStage').classList.remove('hidden');
-  renderGame(game);
-});
-
-function gameButton(label, action, primary = false) {
-  const b = el('button', 'game-action' + (primary ? ' primary-action' : ''), label);
-  b.type = 'button';
-  b.onclick = action;
-  return b;
-}
-
-function renderGame(g) {
-  gameState = g;
-  const stage = $('gameStage');
-  stage.innerHTML = '';
-
-  const peerId = activePeer?.id;
-  const peerLabel = activePeer?.name || 'Friend';
-  const myScore = g.scores?.[cid] || 0;
-  const peerScore = g.scores?.[peerId] || 0;
-
-  const head = el('div', 'game-stage-head');
-  const titleMap = {
-    tictactoe: '✕ Tic-Tac-Toe',
-    rps: '✊ Rock Paper Scissors',
-    connect4: '● Connect Four'
-  };
-  head.append(
-    el('h3', '', titleMap[g.type] || 'DuoPlay'),
-    el('span', 'score-pill', `You ${myScore} — ${peerScore} ${peerLabel}`)
-  );
-  stage.append(head);
-
-  if (g.type === 'tictactoe') {
-    const myMark = g.marks?.[cid] || 'X';
-    const oppMark = myMark === 'X' ? 'O' : 'X';
-    const statusText = g.result
-      ? g.result
-      : g.turn === cid
-      ? `Your turn (${myMark})`
-      : `${peerLabel}'s turn (${oppMark})`;
-    stage.append(el('p', '', statusText));
-
-    const board = el('div', 'game-board');
-    (g.board || Array(9).fill('')).forEach((val, idx) => {
-      const cell = el('button', 'game-cell' + (g.winLine && g.winLine.includes(idx) ? ' win-cell' : ''), val);
-      cell.type = 'button';
-      cell.disabled = !socket.connected || !!val || !!g.result || g.turn !== cid;
-      cell.setAttribute('aria-label', `Cell ${idx + 1}: ${val || 'empty'}`);
-      cell.onclick = () => {
-        socket.emit('game-action', { peerId, type: 'tictactoe', index: idx }, (res) => {
-          if (res && res.error) showToast(res.error);
-        });
-      };
-      board.append(cell);
-    });
-
-    const acts = el('div', 'game-actions');
-    acts.append(
-      gameButton(g.result ? '↻ Play Again' : '↻ Restart', () => socket.emit('game-reset', { peerId }), true),
-      gameButton('Switch Game', () => socket.emit('game-close', { peerId }))
-    );
-    stage.append(board, acts);
-  } else if (g.type === 'rps') {
-    stage.append(el('p', '', `Round ${g.round || 1} · First to 2 points wins the match`));
-
-    if (g.lastRound) {
-      const emojiMap = { rock: '✊', paper: '✋', scissors: '✌️' };
-      const mine = g.lastRound.choices?.[cid];
-      const other = g.lastRound.choices?.[peerId];
-      const outcome =
-        g.lastRound.winner === null
-          ? 'Round Draw!'
-          : g.lastRound.winner === cid
-          ? 'You won that round!'
-          : `${peerLabel} won that round!`;
-      stage.append(el('div', 'game-prompt', `${emojiMap[mine] || '—'}  vs  ${emojiMap[other] || '—'} · ${outcome}`));
-    }
-
-    const myLocked = g.choices && g.choices[cid] && g.choices[cid] !== 'locked';
-    const peerLocked = g.choices && g.choices[peerId] === 'locked';
-
-    const choices = el('div', 'rps-choices');
-    [
-      ['rock', '✊', 'Rock'],
-      ['paper', '✋', 'Paper'],
-      ['scissors', '✌️', 'Scissors']
-    ].forEach(([val, emo, label]) => {
-      const b = el('button', myLocked === val ? 'selected-choice' : '', emo);
-      b.type = 'button';
-      b.append(el('small', '', label));
-      b.disabled = !socket.connected || !!g.matchWinner || !!myLocked;
-      b.onclick = () => {
-        socket.emit('game-action', { peerId, type: 'rps', choice: val }, (res) => {
-          if (res && res.error) showToast(res.error);
-        });
-      };
-      choices.append(b);
-    });
-    stage.append(choices);
-
-    if (g.matchWinner) {
-      stage.append(
-        el('div', 'game-prompt', g.matchWinner === cid ? '🏆 You won the match!' : `🏆 ${peerLabel} won the match!`)
-      );
-    } else if (myLocked) {
-      stage.append(el('div', 'game-wait', `Choice locked in — waiting for ${peerLabel}…`));
-    } else if (peerLocked) {
-      stage.append(el('div', 'game-wait', `${peerLabel} has chosen — pick your move!`));
-    }
-
-    const acts = el('div', 'game-actions');
-    acts.append(
-      gameButton('↻ New Match', () => socket.emit('game-reset', { peerId }), true),
-      gameButton('Switch Game', () => socket.emit('game-close', { peerId }))
-    );
-    stage.append(acts);
-  } else if (g.type === 'connect4') {
-    const myColor = g.colors?.[cid] || 'R';
-    const myDiscLabel = myColor === 'R' ? 'Red' : 'Gold';
-    const oppDiscLabel = myColor === 'R' ? 'Gold' : 'Red';
-    const statusText = g.result
-      ? g.result
-      : g.turn === cid
-      ? `Your turn (${myDiscLabel} disc)`
-      : `${peerLabel}'s turn (${oppDiscLabel} disc)`;
-    stage.append(el('p', '', statusText));
-
-    const board = el('div', 'c4-board');
-    for (let idx = 0; idx < 42; idx++) {
-      const val = g.board[idx];
-      const col = idx % 7;
-      const isWin = g.winCells && g.winCells.includes(idx);
-      const cell = el('button', 'c4-cell' + (val ? ` disc-${val}` : '') + (isWin ? ' win-disc' : ''));
-      cell.type = 'button';
-      cell.disabled = !socket.connected || !!g.result || g.turn !== cid || !!g.board[col];
-      cell.setAttribute('aria-label', `Column ${col + 1}`);
-      cell.onclick = () => {
-        socket.emit('game-action', { peerId, type: 'connect4', col }, (res) => {
-          if (res && res.error) showToast(res.error);
-        });
-      };
-      board.append(cell);
-    }
-
-    const acts = el('div', 'game-actions');
-    acts.append(
-      gameButton(g.result ? '↻ Play Again' : '↻ Restart', () => socket.emit('game-reset', { peerId }), true),
-      gameButton('Switch Game', () => socket.emit('game-close', { peerId }))
-    );
-    stage.append(board, acts);
-  }
-}
-
-/* ---------- Notification Sound ---------- */
-let audio;
-function beep(freq = 880) {
-  try {
-    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
-    const o = audio.createOscillator();
-    const g = audio.createGain();
-    o.frequency.value = freq;
-    g.gain.setValueAtTime(0.07, audio.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.22);
-    o.connect(g);
-    g.connect(audio.destination);
-    o.start();
-    o.stop(audio.currentTime + 0.22);
-  } catch (e) {}
-}
-
-/* ---------- Authentication, Quick Rooms & Avatar Gallery ---------- */
-let authMode = 'login'; // 'login' | 'register' | 'room'
-let roomSubMode = 'create'; // 'create' | 'join'
-let isQuickRoomMode = false;
-let currentRoomCode = '';
-let selectedGender = 'male';
-let selectedAvatar = 0;
-
-function makeClientRoomCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let c = '';
-  for (let i = 0; i < 6; i++) c += chars[Math.floor(Math.random() * chars.length)];
-  return c;
-}
-
-let draftRoomCode = makeClientRoomCode();
-$('generatedRoomCode').textContent = draftRoomCode;
-
-$('regenRoomCodeBtn').onclick = () => {
-  draftRoomCode = makeClientRoomCode();
-  $('generatedRoomCode').textContent = draftRoomCode;
-};
-
-$('copyRoomCodeBtn').onclick = () => {
-  navigator.clipboard?.writeText(draftRoomCode).catch(() => {});
-  showToast(`Room code ${draftRoomCode} copied!`);
-};
-
-$('activeRoomCodeBadge').onclick = () => {
-  if (!currentRoomCode) return;
-  navigator.clipboard?.writeText(currentRoomCode).catch(() => {});
-  showToast(`Room code ${currentRoomCode} copied!`);
-};
-
-function renderAvatarGallery() {
-  $('avatarGallery').replaceChildren();
-  for (let i = 0; i < 8; i++) {
-    const button = el('button', 'avatar-option');
-    button.type = 'button';
-    button.innerHTML = avatarArt(selectedGender, i);
-    button.append(el('span', 'avatar-name', AVATAR_NAMES[selectedGender][i]));
-    button.title = AVATAR_NAMES[selectedGender][i];
-    button.setAttribute('aria-pressed', String(i === selectedAvatar));
-    button.onclick = () => {
-      selectedAvatar = i;
-      renderAvatarGallery();
-    };
-    $('avatarGallery').append(button);
-  }
-  $('maleAvatars').setAttribute('aria-pressed', String(selectedGender === 'male'));
-  $('femaleAvatars').setAttribute('aria-pressed', String(selectedGender === 'female'));
-}
-
-function setRoomSubMode(sub) {
-  roomSubMode = sub;
-  $('createRoomSubTab').classList.toggle('active', sub === 'create');
-  $('joinRoomSubTab').classList.toggle('active', sub === 'join');
-  $('createRoomBox').classList.toggle('hidden', sub !== 'create');
-  $('joinRoomBox').classList.toggle('hidden', sub !== 'join');
-  $('joinRoomCodeInput').required = authMode === 'room' && sub === 'join';
-  ($('authSubmitText') || $('authSubmit')).textContent = sub === 'create' ? 'Create & Enter Room' : 'Join Room';
-  $('authError').textContent = '';
-}
-
-function setAuthMode(mode) {
-  authMode = mode;
-  const isAccount = mode === 'login' || mode === 'register';
-  const showProfile = mode === 'register' || mode === 'room';
-
-  $('accountAuthFields').classList.toggle('hidden', !isAccount);
-  $('roomModeFields').classList.toggle('hidden', mode !== 'room');
-  $('profileSetupFields').classList.toggle('hidden', !showProfile);
-
-  $('username').required = isAccount;
-  $('password').required = isAccount;
-  $('accountName').required = showProfile;
-  $('joinRoomCodeInput').required = mode === 'room' && roomSubMode === 'join';
-
-  // Top tabs highlight: Sign in (active for both login & register) vs Chat Room
-  $('loginTab').classList.toggle('primary-action', isAccount);
-  $('roomTab').classList.toggle('primary-action', mode === 'room');
-
-  // Hide 'Create account' footer completely when Chat Room mode is selected
-  if ($('authSwitchFooter')) {
-    $('authSwitchFooter').classList.toggle('hidden', mode === 'room');
-  }
-
-  // Bottom toggle footer text for Sign in / Register
-  if (mode === 'register') {
-    $('authSwitchPrompt').textContent = 'Already have an account?';
-    if ($('registerTabText')) $('registerTabText').textContent = 'Sign in to account';
-  } else {
-    $('authSwitchPrompt').textContent = "Don't have an account?";
-    if ($('registerTabText')) $('registerTabText').textContent = 'Create new account';
-  }
-
-  const submitSpan = $('authSubmitText') || $('authSubmit');
-  if (mode === 'login') {
-    submitSpan.textContent = 'Sign in';
-    $('password').autocomplete = 'current-password';
-  } else if (mode === 'register') {
-    submitSpan.textContent = 'Create account';
-    $('password').autocomplete = 'new-password';
-  } else {
-    setRoomSubMode(roomSubMode);
-  }
-  $('authError').textContent = '';
-}
-
-function leaveQuickRoomSession() {
-  socket.emit('quick-room-leave');
-  isQuickRoomMode = false;
-  currentRoomCode = '';
-  activePeer = null;
-  activeRoomKey = '';
-  currentAccount = null;
-  $('messengerShell').classList.remove('quick-room-mode', 'mobile-chat-open');
-  $('activeRoomCodeBadge').classList.add('hidden');
-  $('leaveRoomBtn').classList.add('hidden');
-  $('app').classList.add('hidden');
-  $('auth').classList.remove('hidden');
-  draftRoomCode = makeClientRoomCode();
-  $('generatedRoomCode').textContent = draftRoomCode;
-}
-
-$('leaveRoomBtn').onclick = () => {
-  closeAllMenus();
-  leaveQuickRoomSession();
-};
-
-function enterQuickRoom(res) {
-  isQuickRoomMode = true;
-  currentRoomCode = res.roomCode;
-  currentAccount = res.user;
-  cid = res.user.id;
-  activePeer = res.peer;
-  activeRoomKey = res.roomKey;
-  peerTyping = false;
-  setReply(null);
-
-  $('auth').classList.add('hidden');
-  $('app').classList.remove('hidden');
-  $('messengerShell').classList.add('quick-room-mode', 'mobile-chat-open');
-  $('emptyChatState').classList.add('hidden');
-  $('activeChatView').classList.remove('hidden');
-
-  $('activeRoomCodeBadge').textContent = `ROOM: ${currentRoomCode}`;
-  $('activeRoomCodeBadge').classList.remove('hidden');
-  $('leaveRoomBtn').classList.remove('hidden');
-
-  Object.values(items).forEach((it) => clearTimeout(it.vanishTimer));
-  $('msgs').innerHTML = '';
-  Object.keys(items).forEach((k) => delete items[k]);
-
-  (res.history || []).forEach(render);
-  applyWeather(res.weather || 'clear', null);
-  updatePeerMood(activePeer.mood || '');
-  updateChatHeader();
-
-  if (res.game) {
-    gameState = res.game;
-    activeGame = res.game.type;
-    renderGame(res.game);
-  } else {
-    gameState = null;
-    activeGame = null;
-    $('gameStage').classList.add('hidden');
-  }
-
-  resizeCanvas();
-  if (window.innerWidth > 768) $('input').focus();
-}
-
-socket.on('quick-room-peer-joined', ({ roomKey, peer }) => {
-  if (!isQuickRoomMode || roomKey !== activeRoomKey) return;
-  activePeer = peer;
-  beep(880);
-  showToast(`🎉 ${peer.name} joined the room!`);
-  updatePeerMood(peer.mood || '');
-  updateChatHeader();
-  triggerPresenceConfetti(peer.name);
-});
-
-function enterApp(user) {
-  isQuickRoomMode = false;
-  currentRoomCode = '';
-  $('messengerShell').classList.remove('quick-room-mode');
-  $('activeRoomCodeBadge').classList.add('hidden');
-  $('leaveRoomBtn').classList.add('hidden');
-
-  currentAccount = user;
-  cid = user.id;
-  $('sidebarMyAvatar').innerHTML = avatarArt(user.gender, user.avatar);
-  $('sidebarMyName').textContent = user.name;
-  $('sidebarMyHandle').textContent = '@' + user.username;
-  $('password').value = '';
-
-  socket.emit('session-init', accountToken, (res) => {
-    if (res.error) {
-      sessionStorage.removeItem('accountToken');
-      accountToken = '';
-      currentAccount = null;
-      $('app').classList.add('hidden');
-      $('auth').classList.remove('hidden');
-      $('authError').textContent = res.error;
-      return;
-    }
-    inboxData = res.inbox;
-    $('auth').classList.add('hidden');
-    $('app').classList.remove('hidden');
-    renderSidebar();
-  });
-}
-
-$('loginTab').onclick = () => setAuthMode('login');
-$('registerTab').onclick = () => setAuthMode(authMode === 'register' ? 'login' : 'register');
-$('roomTab').onclick = () => setAuthMode('room');
-$('createRoomSubTab').onclick = () => setRoomSubMode('create');
-$('joinRoomSubTab').onclick = () => setRoomSubMode('join');
-
-$('maleAvatars').onclick = () => {
-  selectedGender = 'male';
-  renderAvatarGallery();
-};
-$('femaleAvatars').onclick = () => {
-  selectedGender = 'female';
-  renderAvatarGallery();
-};
-
-$('authForm').onsubmit = (e) => {
-  e.preventDefault();
-  if (!socket.connected) {
-    $('authError').textContent = 'Connecting… please try again in a moment.';
-    return;
-  }
-  $('authSubmit').disabled = true;
-  $('authError').textContent = '';
-
-  if (authMode === 'room') {
-    const code = roomSubMode === 'create' ? draftRoomCode : $('joinRoomCodeInput').value.trim();
-    socket.timeout(15000).emit(
-      'quick-room-auth',
-      {
-        action: roomSubMode,
-        code,
-        name: $('accountName').value,
-        gender: selectedGender,
-        avatar: selectedAvatar
-      },
-      (err, res) => {
-        $('authSubmit').disabled = false;
-        if (err || res?.error) {
-          $('authError').textContent = res?.error || 'Could not enter room. Please try again.';
-          return;
-        }
-        enterQuickRoom(res);
-        if (roomSubMode === 'create') {
-          showToast(`Room ${res.roomCode} created! Share the code to chat.`);
-        } else {
-          showToast(`Joined room ${res.roomCode}!`);
-        }
-      }
-    );
-    return;
-  }
-
-  socket.timeout(15000).emit(
-    'account-auth',
-    {
-      mode: authMode,
-      username: $('username').value,
-      password: $('password').value,
-      name: $('accountName').value,
-      gender: selectedGender,
-      avatar: selectedAvatar
-    },
-    (err, res) => {
-      $('authSubmit').disabled = false;
-      if (err || res?.error) {
-        $('authError').textContent = res?.error || 'Request timed out. Please try again.';
-        return;
-      }
-      accountToken = res.token;
-      sessionStorage.setItem('accountToken', accountToken);
-      enterApp(res.user);
-    }
-  );
+  $('moreMenu').classList.add('hidden');
 };
 
 $('logoutBtn').onclick = () => {
-  sessionStorage.removeItem('accountToken');
-  socket.emit('account-logout', accountToken);
+  sessionStorage.removeItem('dc_token');
   location.reload();
 };
 
-socket.on('connect', () => {
-  if (accountToken && !isQuickRoomMode) {
-    socket.emit('account-resume', accountToken, (res) => {
-      if (res.user) {
-        enterApp(res.user);
-        if (activePeer) openConversation(activePeer.id);
-      } else {
-        accountToken = '';
-        sessionStorage.removeItem('accountToken');
-      }
-    });
-  }
+document.querySelectorAll('[data-close]').forEach(b => {
+  b.onclick = () => $(b.dataset.close).classList.add('hidden');
 });
 
-socket.on('disconnect', () => {
-  if (activePeer) {
-    peerTyping = false;
-    updateChatHeader(true);
-    if (gameState) renderGame(gameState);
-  }
-});
+/* =========================================================
+   DUOPLAY MINI-GAMES (Original 3 Games with Clean SVG Symbols)
+   ========================================================= */
+$('gamesBtn').onclick = () => openGameModal(null);
 
-renderAvatarGallery();
-setAuthMode('login');
-
-
-/* ==========================================================================
-   DuoChat v7 New Features Implementation (3, 9, 18, 21, 22, 24, 26)
-   ========================================================================== */
-
-/* ---------- Feature 24: Subtle Typing & Send Sound Effects + Haptics ---------- */
-let soundFxEnabled = localStorage.getItem('duochat_sound_fx') !== '0';
-let lastKeyTickTime = 0;
-
-function updateSoundToggleUI() {
-  if ($('soundToggleLabel')) {
-    $('soundToggleLabel').textContent = `Key & Send Sound: ${soundFxEnabled ? 'ON' : 'OFF'}`;
-  }
-}
-updateSoundToggleUI();
-
-if ($('soundToggleBtn')) {
-  $('soundToggleBtn').onclick = (e) => {
-    e.stopPropagation();
-    soundFxEnabled = !soundFxEnabled;
-    localStorage.setItem('duochat_sound_fx', soundFxEnabled ? '1' : '0');
-    updateSoundToggleUI();
-    showToast(soundFxEnabled ? '🔊 Typing & send sounds enabled' : '🔇 Typing & send sounds muted');
-  };
-}
-
-function playKeyTick() {
-  if (!soundFxEnabled) return;
-  const now = Date.now();
-  if (now - lastKeyTickTime < 45) return;
-  lastKeyTickTime = now;
-  try {
-    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
-    const o = audio.createOscillator();
-    const g = audio.createGain();
-    o.type = 'triangle';
-    o.frequency.value = 520 + Math.random() * 140;
-    g.gain.setValueAtTime(0.018, audio.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.0008, audio.currentTime + 0.035);
-    o.connect(g);
-    g.connect(audio.destination);
-    o.start();
-    o.stop(audio.currentTime + 0.035);
-  } catch (e) {}
-}
-
-function playSendSound() {
-  if (!soundFxEnabled) return;
-  try {
-    if (navigator.vibrate) navigator.vibrate(15);
-    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
-    const o = audio.createOscillator();
-    const g = audio.createGain();
-    o.type = 'sine';
-    o.frequency.setValueAtTime(540, audio.currentTime);
-    o.frequency.exponentialRampToValueAtTime(860, audio.currentTime + 0.11);
-    g.gain.setValueAtTime(0.055, audio.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.12);
-    o.connect(g);
-    g.connect(audio.destination);
-    o.start();
-    o.stop(audio.currentTime + 0.12);
-  } catch (e) {}
-}
-
-/* ---------- Feature 3: Live Heartbeat Tap (Long-Press Screen or Header Heart) ---------- */
-function playHeartbeatPulse(senderName, isOutgoing = false) {
-  if (navigator.vibrate) {
-    navigator.vibrate([90, 70, 140]);
-  }
-  try {
-    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
-    [0, 0.16].forEach((offset, idx) => {
-      const o = audio.createOscillator();
-      const g = audio.createGain();
-      o.type = 'sine';
-      o.frequency.value = idx === 0 ? 115 : 95;
-      g.gain.setValueAtTime(0.14, audio.currentTime + offset);
-      g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + offset + 0.14);
-      o.connect(g);
-      g.connect(audio.destination);
-      o.start(audio.currentTime + offset);
-      o.stop(audio.currentTime + offset + 0.14);
-    });
-  } catch (e) {}
-
-  const ov = $('heartbeatOverlay');
-  if (ov) {
-    ov.classList.remove('hidden');
-    ov.style.animation = 'none';
-    void ov.offsetWidth;
-    ov.style.animation = '';
-    clearTimeout(ov._timer);
-    ov._timer = setTimeout(() => ov.classList.add('hidden'), 1500);
-  }
-
-  if (isOutgoing) {
-    showToast(`💓 Heartbeat pulse sent to ${senderName}`);
-  } else {
-    showToast(`💓 ${senderName} sent a Live Heartbeat pulse!`);
-  }
-}
-
-function sendLiveHeartbeat() {
-  if (!activePeer || !socket.connected) return showToast('Partner must be connected to feel your heartbeat.');
-  socket.emit('heartbeat', { peerId: activePeer.id });
-  playHeartbeatPulse(activePeer.name, true);
-}
-
-socket.on('heartbeat', ({ roomKey, fromName }) => {
-  if (roomKey === activeRoomKey) {
-    playHeartbeatPulse(fromName || activePeer?.name || 'Partner', false);
-  }
-});
-
-// Long-press on header heartbeat button OR empty chat area triggers Live Heartbeat Tap
-let hbHoldTimer = null;
-const hbBtn = $('heartbeatBtn');
-if (hbBtn) {
-  hbBtn.addEventListener('pointerdown', () => {
-    hbBtn.classList.add('holding');
-    hbHoldTimer = setTimeout(() => {
-      hbBtn.classList.remove('holding');
-      sendLiveHeartbeat();
-    }, 450);
-  });
-  hbBtn.addEventListener('pointerup', () => {
-    hbBtn.classList.remove('holding');
-    clearTimeout(hbHoldTimer);
-  });
-  hbBtn.addEventListener('pointerleave', () => {
-    hbBtn.classList.remove('holding');
-    clearTimeout(hbHoldTimer);
-  });
-  hbBtn.onclick = () => sendLiveHeartbeat();
-}
-
-let msgAreaHoldTimer = null;
-$('msgs').addEventListener('pointerdown', (e) => {
-  if (e.target.closest('.m') || e.target.closest('button') || e.target.closest('input')) return;
-  msgAreaHoldTimer = setTimeout(() => {
-    sendLiveHeartbeat();
-  }, 600);
-});
-['pointerup', 'pointerleave', 'pointermove'].forEach((ev) => {
-  $('msgs').addEventListener(ev, () => clearTimeout(msgAreaHoldTimer));
-});
-
-/* ---------- Feature 9: Screenshot Detection Alert ---------- */
-let lastScreenshotAt = 0;
-function reportScreenshotTaken() {
-  if (!activePeer || !socket.connected || $('activeChatView').classList.contains('hidden')) return;
-  const now = Date.now();
-  if (now - lastScreenshotAt < 3000) return;
-  lastScreenshotAt = now;
-  socket.emit('screenshot-taken', { peerId: activePeer.id });
-}
-
-document.addEventListener('keyup', (e) => {
-  if (e.key === 'PrintScreen' || (e.metaKey && e.shiftKey && ['3', '4', '5'].includes(e.key))) {
-    reportScreenshotTaken();
-  }
-});
-document.addEventListener('keydown', (e) => {
-  if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 's') {
-    reportScreenshotTaken();
-  }
-});
-
-socket.on('screenshot-alert', ({ roomKey, byId, byName }) => {
-  if (roomKey !== activeRoomKey) return;
-  const label = byId === cid ? 'You took a screenshot of the chat' : `${byName} took a screenshot!`;
-  const banner = el('div', 'system-alert-pill');
-  banner.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span>${label}</span>`;
-  $('msgs').append(banner);
-  scrollDown();
-  if (byId !== cid) {
-    beep(960);
-    showToast(`📸 ${label}`);
-  }
-});
-
-/* ---------- Feature 22: Custom Blast Reactions ---------- */
-function triggerReactionBlast(emoji) {
-  const overlay = $('fxOverlay');
-  if (!overlay || !emoji) return;
-  const burstMap = {
-    '❤️': ['❤️', '💖', '💕', '💗', '💓'],
-    '🔥': ['🔥', '✨', '💥', '⚡'],
-    '😂': ['😂', '🤣', '😆', '✨'],
-    '🤲': ['🤲', '✨', '🌙', '💫'],
-    '😮': ['😮', '✨', '🌟', '💫'],
-    '😢': ['😢', '💧', '🫂'],
-    '👍': ['👍', '✨', '⭐']
-  };
-  const pool = burstMap[emoji] || [emoji, '✨'];
-  for (let i = 0; i < 18; i++) {
-    const p = document.createElement('span');
-    p.className = 'fx-particle';
-    p.textContent = pool[i % pool.length];
-    p.style.left = `${12 + Math.random() * 76}%`;
-    p.style.bottom = `${10 + Math.random() * 25}%`;
-    p.style.setProperty('--dx1', `${(Math.random() - 0.5) * 90}px`);
-    p.style.setProperty('--dx2', `${(Math.random() - 0.5) * 180}px`);
-    p.style.setProperty('--rot1', `${(Math.random() - 0.5) * 40}deg`);
-    p.style.setProperty('--rot2', `${(Math.random() - 0.5) * 80}deg`);
-    p.style.setProperty('--dur', `${1.3 + Math.random() * 0.8}s`);
-    overlay.append(p);
-    setTimeout(() => p.remove(), 2200);
-  }
-}
-
-/* ---------- Feature 26: Dual-Online Presence Confetti Celebration ---------- */
-let lastConfettiPeerId = '';
-let lastConfettiTime = 0;
-function triggerPresenceConfetti(peerName) {
-  const now = Date.now();
-  if (activePeer && lastConfettiPeerId === activePeer.id && now - lastConfettiTime < 25000) return;
-  lastConfettiPeerId = activePeer ? activePeer.id : '';
-  lastConfettiTime = now;
-
-  const overlay = $('fxOverlay');
-  if (!overlay) return;
-  const colors = ['#8b5cf6', '#38bdf8', '#f43f5e', '#10b981', '#f59e0b', '#ec4899'];
-  for (let i = 0; i < 36; i++) {
-    const c = document.createElement('span');
-    c.className = 'fx-confetti';
-    c.style.left = `${Math.random() * 100}%`;
-    c.style.backgroundColor = colors[i % colors.length];
-    c.style.setProperty('--drift', `${(Math.random() - 0.5) * 140}px`);
-    c.style.setProperty('--dur', `${1.8 + Math.random() * 1.2}s`);
-    c.style.animationDelay = `${Math.random() * 0.35}s`;
-    overlay.append(c);
-    setTimeout(() => c.remove(), 3400);
-  }
-  showToast(`✨ You and ${peerName} are both online together!`);
-}
-
-/* ---------- Features 18 & 21: Quick Duo Poll, Secret Passcode Vault & Duo Mini-Quiz ---------- */
-function sendWidgetMessage(widgetObj, previewLabel) {
-  if (!activePeer || !socket.connected) return showToast('Connect with your partner first.');
-  const now = Date.now();
-  const m = {
-    id: cid.slice(0, 6) + rnd(),
-    to: activePeer.id,
-    text: '',
-    image: null,
-    widget: widgetObj,
-    reply: replyTo,
-    vanish: false,
-    spoiler: false
-  };
-  playSendSound();
-  render({ ...m, from: cid, name: currentAccount.name, time: now, status: 'sending' });
-  updateSidebarPreview(activePeer.id, previewLabel, now, true, false);
-  socket.emit('msg', m, (status) => {
-    if (status && status.error) return showToast(status.error);
-    setStatus(m.id, status);
-  });
-  closeModal('gamesModal');
-}
-
-function openInteractiveCreatorInStage(type) {
-  $('gamePickerGrid').classList.add('hidden');
-  const stage = $('gameStage');
-  stage.classList.remove('hidden');
-  stage.innerHTML = '';
-
-  const backToMenuBtn = gameButton('← Back to Arcade', () => {
-    stage.classList.add('hidden');
+function openGameModal(gameType) {
+  if (!state.activeFriend) return;
+  $('gamesModal').classList.remove('hidden');
+  if (!gameType) {
     $('gamePickerGrid').classList.remove('hidden');
-  });
-
-  if (type === 'duopoll') {
-    stage.append(
-      el('h3', '', '📊 Quick Duo Poll'),
-      el('p', '', 'Ask a quick question so you both can vote & decide right in chat.')
-    );
-    const form = el('div', 'stage-form');
-    const qIn = el('input');
-    qIn.placeholder = 'Question (e.g. What should we eat tonight?)';
-    const o1 = el('input');
-    o1.placeholder = 'Option 1 (e.g. Biryani)';
-    const o2 = el('input');
-    o2.placeholder = 'Option 2 (e.g. Pizza)';
-    const o3 = el('input');
-    o3.placeholder = 'Option 3 (optional)';
-    const sendBtn = gameButton('Send Poll to Chat ↗', () => {
-      const question = qIn.value.trim();
-      const options = [o1.value.trim(), o2.value.trim(), o3.value.trim()].filter(Boolean);
-      if (!question || options.length < 2) return showToast('Enter a question and at least 2 options.');
-      sendWidgetMessage({ kind: 'poll', question, options, votes: {} }, '📊 Quick Poll');
-    }, true);
-    const acts = el('div', 'game-actions');
-    acts.append(sendBtn, backToMenuBtn);
-    form.append(qIn, o1, o2, o3, acts);
-    stage.append(form);
-  } else if (type === 'secretvault') {
-    stage.append(
-      el('h3', '', '🔐 Secret Passcode Lock'),
-      el('p', '', 'Send a locked secret message with a clue and 4-digit PIN.')
-    );
-    const form = el('div', 'stage-form');
-    const clueIn = el('input');
-    clueIn.placeholder = 'Hint / Clue (e.g. Year we first met)';
-    const pinIn = el('input');
-    pinIn.placeholder = 'Secret Passcode (2–6 digits/letters, e.g. 2024)';
-    pinIn.maxLength = 6;
-    const secretIn = el('input');
-    secretIn.placeholder = 'Hidden secret message inside…';
-    const sendBtn = gameButton('Lock & Send Secret ↗', () => {
-      const pin = pinIn.value.trim();
-      const secret = secretIn.value.trim();
-      if (pin.length < 2 || !secret) return showToast('Enter a passcode (2+ chars) and secret message.');
-      sendWidgetMessage(
-        { kind: 'vault', clue: clueIn.value.trim() || 'Unlock with passcode', pin, secret, unlockedBy: [] },
-        '🔐 Secret Passcode'
-      );
-    }, true);
-    const acts = el('div', 'game-actions');
-    acts.append(sendBtn, backToMenuBtn);
-    form.append(clueIn, pinIn, secretIn, acts);
-    stage.append(form);
-  } else if (type === 'duoquiz') {
-    stage.append(
-      el('h3', '', '❓ Duo Mini-Quiz'),
-      el('p', '', 'Challenge your partner with a quick custom trivia question!')
-    );
-    const form = el('div', 'stage-form');
-    const qIn = el('input');
-    qIn.placeholder = 'Quiz Question (e.g. What is my favorite coffee?)';
-    const o1 = el('input');
-    o1.placeholder = 'Choice A';
-    const o2 = el('input');
-    o2.placeholder = 'Choice B';
-    const o3 = el('input');
-    o3.placeholder = 'Choice C (optional)';
-    const ansSel = el('select');
-    ansSel.innerHTML = '<option value="0">Correct Answer: Choice A</option><option value="1">Correct Answer: Choice B</option><option value="2">Correct Answer: Choice C</option>';
-    const sendBtn = gameButton('Send Mini-Quiz ↗', () => {
-      const question = qIn.value.trim();
-      const options = [o1.value.trim(), o2.value.trim(), o3.value.trim()].filter(Boolean);
-      if (!question || options.length < 2) return showToast('Enter a question and at least 2 choices.');
-      const answerIdx = Math.min(options.length - 1, Number(ansSel.value) || 0);
-      sendWidgetMessage({ kind: 'quiz', question, options, answerIdx, answers: {} }, '❓ Duo Mini-Quiz');
-    }, true);
-    const acts = el('div', 'game-actions');
-    acts.append(sendBtn, backToMenuBtn);
-    form.append(qIn, o1, o2, o3, ansSel, acts);
-    stage.append(form);
+    $('gameStage').classList.add('hidden');
+  } else {
+    startOrShowGame(gameType, true);
   }
 }
 
-if ($('pollQuickBtn')) {
-  $('pollQuickBtn').onclick = () => {
-    if (!activePeer) return;
-    openModal('gamesModal');
-    openInteractiveCreatorInStage('duopoll');
-  };
-}
+$('gamePickerGrid').onclick = e => {
+  const tile = e.target.closest('[data-game]');
+  if (tile) startOrShowGame(tile.dataset.game, true);
+};
 
-function buildInteractiveWidget(m) {
-  const w = m.widget;
-  const box = el('div', 'interactive-card');
+function startOrShowGame(type, announce) {
+  $('gamePickerGrid').classList.add('hidden');
+  $('gameStage').classList.remove('hidden');
 
-  if (w.kind === 'poll') {
-    box.append(el('div', 'ic-badge', '📊 QUICK DUO POLL'), el('div', 'ic-title', w.question));
-    const votes = w.votes || {};
-    const totalVotes = Object.keys(votes).length;
-    w.options.forEach((optText, idx) => {
-      const count = Object.values(votes).filter((v) => v === idx).length;
-      const pct = totalVotes ? Math.round((count / totalVotes) * 100) : 0;
-      const isMine = votes[cid] === idx;
-      const btn = el('button', 'poll-opt-btn' + (isMine ? ' voted' : ''));
-      btn.type = 'button';
-      const fill = el('span', 'poll-opt-fill');
-      fill.style.width = `${pct}%`;
-      const lbl = el('span', 'poll-opt-label', `${isMine ? '✓ ' : ''}${optText}`);
-      const cnt = el('span', 'poll-opt-count', `${count} (${pct}%)`);
-      btn.append(fill, lbl, cnt);
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        if (!activePeer) return;
-        socket.emit('widget-interact', { peerId: activePeer.id, id: m.id, action: 'vote', value: idx }, (res) => {
-          if (res?.error) showToast(res.error);
-        });
+  if (!state.activeGame || state.activeGame.type !== type) {
+    if (type === 'tictactoe') {
+      state.activeGame = {
+        type: 'tictactoe',
+        board: Array(9).fill(''),
+        turn: state.user.username,
+        roles: { [state.user.username]: 'X', [state.activeFriend.username]: 'O' },
+        winner: null
       };
-      box.append(btn);
-    });
-  } else if (w.kind === 'vault') {
-    const unlocked = (w.unlockedBy || []).includes(cid) || m.from === cid;
-    box.append(el('div', 'ic-badge', unlocked ? '🔓 UNLOCKED SECRET' : '🔐 SECRET PASSCODE'), el('div', 'ic-title', `Clue: ${w.clue}`));
-    if (unlocked) {
-      box.append(el('div', 'vault-secret-box', w.secret));
-    } else {
-      const row = el('div', 'vault-pin-row');
-      const pinInput = el('input', 'vault-pin-input');
-      pinInput.placeholder = 'PIN';
-      pinInput.maxLength = 6;
-      pinInput.onclick = (e) => e.stopPropagation();
-      const unlockBtn = el('button', 'mini-pill-btn solid', 'Unlock');
-      unlockBtn.type = 'button';
-      unlockBtn.onclick = (e) => {
-        e.stopPropagation();
-        if (!activePeer) return;
-        socket.emit('widget-interact', { peerId: activePeer.id, id: m.id, action: 'unlock', value: pinInput.value }, (res) => {
-          if (res?.error) showToast(res.error);
-          else showToast('🔓 Secret unlocked!');
-        });
+    } else if (type === 'rps') {
+      state.activeGame = {
+        type: 'rps',
+        picks: {},
+        scores: { [state.user.username]: 0, [state.activeFriend.username]: 0 },
+        roundNote: 'Pick your move!'
       };
-      row.append(pinInput, unlockBtn);
-      box.append(row);
+    } else if (type === 'connect4') {
+      state.activeGame = {
+        type: 'connect4',
+        grid: Array.from({ length: 6 }, () => Array(7).fill(0)),
+        turn: state.user.username,
+        roles: { [state.user.username]: 1, [state.activeFriend.username]: 2 },
+        winner: null
+      };
     }
-  } else if (w.kind === 'quiz') {
-    box.append(el('div', 'ic-badge', '❓ DUO MINI-QUIZ'), el('div', 'ic-title', w.question));
-    const answers = w.answers || {};
-    const myAns = answers[cid];
-    w.options.forEach((optText, idx) => {
-      const isCorrect = idx === w.answerIdx;
-      const pickedByMe = myAns === idx;
-      let suffix = '';
-      if (myAns !== undefined) {
-        if (isCorrect) suffix = ' ✅';
-        else if (pickedByMe) suffix = ' ❌';
-      }
-      const btn = el('button', 'poll-opt-btn' + (pickedByMe ? ' voted' : ''));
-      btn.type = 'button';
-      btn.append(el('span', 'poll-opt-label', optText + suffix));
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        if (!activePeer) return;
-        socket.emit('widget-interact', { peerId: activePeer.id, id: m.id, action: 'answer', value: idx }, (res) => {
-          if (res?.error) showToast(res.error);
-          else showToast(idx === w.answerIdx ? '🎉 Correct answer!' : '😅 Nice try!');
-        });
-      };
-      box.append(btn);
-    });
+    syncGame();
+    if (announce) {
+      const gameNames = { tictactoe: 'Tic-Tac-Toe', rps: 'Rock Paper Scissors', connect4: 'Connect Four' };
+      socket.emit('chat:send', {
+        to: state.activeFriend.username,
+        type: 'game-invite',
+        game: type,
+        text: `Invited you to play ${gameNames[type] || type}`
+      });
+    }
   }
-  return box;
+  renderGameStage();
 }
 
-socket.on('widget-updated', ({ roomKey, id, widget }) => {
-  if (roomKey !== activeRoomKey) return;
-  const it = items[id];
-  if (!it) return;
-  it.m.widget = widget;
-  const oldCard = it.el.querySelector('.interactive-card');
-  const newCard = buildInteractiveWidget(it.m);
-  if (oldCard) oldCard.replaceWith(newCard);
+function syncGame() {
+  if (!state.activeFriend) return;
+  socket.emit('game:sync', { to: state.activeFriend.username, game: state.activeGame });
+}
+
+function renderGameStage() {
+  const g = state.activeGame;
+  if (!g) return;
+  const stage = $('gameStage');
+
+  if (g.type === 'tictactoe') {
+    const myMark = g.roles[state.user.username] || 'O';
+    const myTurn = g.turn === state.user.username && !g.winner;
+    const statusText = g.winner
+      ? (g.winner === 'draw' ? "It's a draw!" : `${g.winner === state.user.username ? 'You' : state.activeFriend.name} won!`)
+      : (myTurn ? `Your turn (${myMark})` : `Waiting for ${state.activeFriend.name}…`);
+
+    stage.innerHTML = `
+      <div class="stage-top">
+        <b>Tic-Tac-Toe</b>
+        <button class="game-action" id="backGames">All Games</button>
+      </div>
+      <div class="stage-status">${statusText}</div>
+      <div class="ttt-board">
+        ${g.board.map((v, i) => `<button class="ttt-cell ${v.toLowerCase()}" data-ttt="${i}">${v}</button>`).join('')}
+      </div>
+      <div style="text-align:center"><button class="game-action primary-action" id="resetGame">New Round</button></div>
+    `;
+  } else if (g.type === 'rps') {
+    const myPick = g.picks[state.user.username];
+    const peerPick = g.picks[state.activeFriend.username];
+    const myScore = g.scores[state.user.username] || 0;
+    const peerScore = g.scores[state.activeFriend.username] || 0;
+    const statusText = myPick && !peerPick
+      ? `You locked ${myPick.toUpperCase()} — waiting for ${state.activeFriend.name}…`
+      : g.roundNote;
+
+    stage.innerHTML = `
+      <div class="stage-top">
+        <b>Rock Paper Scissors (${myScore} – ${peerScore})</b>
+        <button class="game-action" id="backGames">All Games</button>
+      </div>
+      <div class="stage-status">${escapeHtml(statusText)}</div>
+      <div class="rps-choices">
+        ${['rock', 'paper', 'scissors'].map(c => `
+          <button class="rps-btn ${myPick === c ? 'picked' : ''}" data-rps="${c}">
+            ${RPS_SVGS[c]}
+            <span style="text-transform:capitalize">${c}</span>
+          </button>
+        `).join('')}
+      </div>
+      <div style="text-align:center"><button class="game-action primary-action" id="resetGame">Reset Match</button></div>
+    `;
+  } else if (g.type === 'connect4') {
+    const myTurn = g.turn === state.user.username && !g.winner;
+    const statusText = g.winner
+      ? (g.winner === 'draw' ? 'Board full — Draw!' : `${g.winner === state.user.username ? 'You' : state.activeFriend.name} connected 4!`)
+      : (myTurn ? 'Your turn — tap any column' : `Waiting for ${state.activeFriend.name}…`);
+
+    stage.innerHTML = `
+      <div class="stage-top">
+        <b>Connect Four</b>
+        <button class="game-action" id="backGames">All Games</button>
+      </div>
+      <div class="stage-status">${statusText}</div>
+      <div class="c4-board">
+        ${g.grid.map((row, r) => row.map((v, c) => `<button class="c4-cell ${v === 1 ? 'r1' : v === 2 ? 'r2' : ''}" data-c4="${c}" aria-label="Row ${r + 1} Col ${c + 1}"></button>`).join('')).join('')}
+      </div>
+      <div style="text-align:center"><button class="game-action primary-action" id="resetGame">New Board</button></div>
+    `;
+  }
+}
+
+$('gameStage').onclick = e => {
+  if (e.target.id === 'backGames') {
+    $('gameStage').classList.add('hidden');
+    $('gamePickerGrid').classList.remove('hidden');
+    return;
+  }
+  const g = state.activeGame;
+  if (!g) return;
+
+  if (e.target.id === 'resetGame') {
+    const type = g.type;
+    state.activeGame = null;
+    startOrShowGame(type, false);
+    return;
+  }
+
+  if (g.type === 'tictactoe' && e.target.dataset.ttt !== undefined) {
+    const idx = Number(e.target.dataset.ttt);
+    if (g.winner || g.turn !== state.user.username || g.board[idx]) return;
+    g.board[idx] = g.roles[state.user.username] || 'X';
+    const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+    const won = wins.some(([a,b,c]) => g.board[a] && g.board[a] === g.board[b] && g.board[a] === g.board[c]);
+    if (won) {
+      g.winner = state.user.username;
+      triggerBlast('🏆');
+    } else if (g.board.every(Boolean)) {
+      g.winner = 'draw';
+    } else {
+      g.turn = state.activeFriend.username;
+    }
+    syncGame();
+    renderGameStage();
+  }
+
+  const rpsBtn = e.target.closest('[data-rps]');
+  if (g.type === 'rps' && rpsBtn) {
+    const pick = rpsBtn.dataset.rps;
+    g.picks[state.user.username] = pick;
+    const p1 = g.picks[state.user.username];
+    const p2 = g.picks[state.activeFriend.username];
+    if (p1 && p2) {
+      if (p1 === p2) {
+        g.roundNote = `Both chose ${p1.toUpperCase()} — Tie round!`;
+      } else if ((p1 === 'rock' && p2 === 'scissors') || (p1 === 'paper' && p2 === 'rock') || (p1 === 'scissors' && p2 === 'paper')) {
+        g.scores[state.user.username] = (g.scores[state.user.username] || 0) + 1;
+        g.roundNote = `${p1.toUpperCase()} beats ${p2.toUpperCase()} — You won the round!`;
+        triggerBlast('🎉');
+      } else {
+        g.scores[state.activeFriend.username] = (g.scores[state.activeFriend.username] || 0) + 1;
+        g.roundNote = `${p2.toUpperCase()} beats ${p1.toUpperCase()} — ${state.activeFriend.name} won the round!`;
+      }
+      g.picks = {};
+    }
+    syncGame();
+    renderGameStage();
+  }
+
+  if (g.type === 'connect4' && e.target.dataset.c4 !== undefined) {
+    const col = Number(e.target.dataset.c4);
+    if (g.winner || g.turn !== state.user.username) return;
+    let placedRow = -1;
+    for (let r = 5; r >= 0; r--) {
+      if (g.grid[r][col] === 0) {
+        placedRow = r;
+        break;
+      }
+    }
+    if (placedRow === -1) return;
+    const disc = g.roles[state.user.username] || 1;
+    g.grid[placedRow][col] = disc;
+
+    const checkWin = (r, c) => {
+      const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+      return dirs.some(([dr, dc]) => {
+        let count = 1;
+        for (const sign of [-1, 1]) {
+          let nr = r + dr * sign, nc = c + dc * sign;
+          while (nr >= 0 && nr < 6 && nc >= 0 && nc < 7 && g.grid[nr][nc] === disc) {
+            count++;
+            nr += dr * sign;
+            nc += dc * sign;
+          }
+        }
+        return count >= 4;
+      });
+    };
+
+    if (checkWin(placedRow, col)) {
+      g.winner = state.user.username;
+      triggerBlast('🏆');
+    } else if (g.grid[0].every(v => v !== 0)) {
+      g.winner = 'draw';
+    } else {
+      g.turn = state.activeFriend.username;
+    }
+    syncGame();
+    renderGameStage();
+  }
+};
+
+/* =========================================================
+   SOCKET.IO REAL-TIME LISTENERS
+   ========================================================= */
+socket.on('room:peer', ({ peer }) => {
+  if (!state.isRoomSession) return;
+  if (peer) {
+    state.activeFriend = {
+      username: peer.username,
+      name: peer.name,
+      avatar: peer.avatar,
+      online: true,
+      mood: peer.mood || '',
+      aura: peer.aura || '',
+      isRoomChannel: true
+    };
+    toast(`${peer.name} joined the room`);
+  } else {
+    state.activeFriend = {
+      username: `room:${state.activeRoomCode}`,
+      name: `Room ${state.activeRoomCode}`,
+      avatar: state.avatar === 'brother-1' ? 'sister-1' : 'brother-1',
+      online: false,
+      isRoomChannel: true
+    };
+    toast('Partner left the room');
+  }
+  updateActiveHeader();
+  renderInbox();
 });
+
+socket.on('chat:message', m => {
+  const involvesActive = state.activeFriend && (
+    state.isRoomSession ||
+    m.sender === state.activeFriend.username ||
+    m.recipient === state.activeFriend.username
+  );
+
+  if (involvesActive) {
+    state.messages.push(m);
+    renderMessages();
+    if (m.sender !== state.user.username && !state.isRoomSession) {
+      socket.emit('chat:seen', { withUser: state.activeFriend.username });
+    }
+  } else if (m.sender !== state.user.username && m.type !== 'system') {
+    toast(`New message from ${m.senderName || m.sender}`);
+  }
+
+  if (m.type === 'text' && isOnlyEmoji(m.text) && involvesActive) {
+    triggerBlast(m.text.trim());
+  }
+  refreshInbox();
+});
+
+socket.on('chat:seen', ({ by }) => {
+  if (state.activeFriend && (state.isRoomSession || state.activeFriend.username === by)) {
+    state.messages.forEach(m => {
+      if (m.sender === state.user.username) m.seen = true;
+    });
+    renderMessages();
+  }
+});
+
+socket.on('chat:vanished', ({ ids }) => {
+  state.messages = state.messages.filter(m => !ids.includes(m.id));
+  if (state.activeFriend) renderMessages();
+  refreshInbox();
+});
+
+socket.on('chat:react', ({ id, reactions }) => {
+  const m = state.messages.find(x => x.id === id);
+  if (m) {
+    m.reactions = reactions;
+    renderMessages();
+  }
+});
+
+socket.on('chat:delete', ({ id }) => {
+  const m = state.messages.find(x => x.id === id);
+  if (m) {
+    m.deleted = true;
+    renderMessages();
+  }
+  refreshInbox();
+});
+
+socket.on('chat:clear', ({ withUser }) => {
+  if (state.activeFriend && (state.isRoomSession || state.activeFriend.username === withUser)) {
+    state.messages = [];
+    renderMessages();
+  }
+  refreshInbox();
+});
+
+socket.on('chat:typing', ({ from, typing }) => {
+  if (state.activeFriend && (state.isRoomSession || state.activeFriend.username === from)) {
+    $('typingBubble').classList.toggle('hidden', !typing);
+  }
+});
+
+socket.on('chat:heartbeat', ({ from }) => {
+  if (state.activeFriend && (state.isRoomSession || state.activeFriend.username === from)) {
+    triggerHeartbeatPulse(false);
+  }
+});
+
+socket.on('chat:weather', ({ from, weather }) => {
+  if (state.activeFriend && (state.isRoomSession || state.activeFriend.username === from)) {
+    setWeather(weather, false);
+    toast(`Atmosphere changed to ${weather}`);
+  }
+});
+
+socket.on('user:presence', ({ username, online, lastSeen }) => {
+  const f = state.friends.find(x => x.username === username);
+  if (f) {
+    f.online = online;
+    f.lastSeen = lastSeen;
+    renderInbox();
+  }
+  if (state.activeFriend && state.activeFriend.username === username) {
+    state.activeFriend.online = online;
+    state.activeFriend.lastSeen = lastSeen;
+    setOnlineStatus(online, lastSeen);
+  }
+});
+
+socket.on('user:mood', ({ username, mood, aura }) => {
+  const f = state.friends.find(x => x.username === username);
+  if (f) {
+    f.mood = mood;
+    f.aura = aura;
+    renderInbox();
+  }
+  if (state.activeFriend && state.activeFriend.username === username) {
+    state.activeFriend.mood = mood;
+    state.activeFriend.aura = aura;
+    updateActiveHeader();
+  }
+});
+
+socket.on('friend:request', ({ from }) => {
+  toast(`Friend request from ${from.name} (@${from.username})`);
+  refreshInbox();
+});
+
+socket.on('friend:accepted', ({ friend }) => {
+  toast(`${friend.name} accepted your friend request`);
+  refreshInbox();
+});
+
+socket.on('game:sync', ({ from, game }) => {
+  if (!state.activeFriend || (!state.isRoomSession && state.activeFriend.username !== from)) return;
+  state.activeGame = game;
+  if (!$('gamesModal').classList.contains('hidden')) {
+    $('gamePickerGrid').classList.add('hidden');
+    $('gameStage').classList.remove('hidden');
+    renderGameStage();
+  } else {
+    toast(`${state.activeFriend.name} made a move in ${game.type}`);
+  }
+});
+
+/* =========================================================
+   BOOT INITIALIZATION
+   ========================================================= */
+(async function init() {
+  if (localStorage.getItem('dc_light')) document.documentElement.classList.add('light');
+  const savedTheme = localStorage.getItem('dc_theme') || 'midnight';
+  document.documentElement.dataset.theme = savedTheme;
+  document.querySelectorAll('.theme-swatch').forEach(x => x.classList.toggle('active', x.dataset.themeChoice === savedTheme));
+
+  $('devInfoBtn').onclick = () => $('devModal').classList.remove('hidden');
+
+  generateRoomCode();
+  setAuthMode('login');
+  startWeatherLoop();
+
+  if (state.token) {
+    try {
+      const data = await api('/api/me');
+      state.user = data.user;
+      await enterMessenger();
+      return;
+    } catch (e) {
+      sessionStorage.removeItem('dc_token');
+      state.token = '';
+    }
+  }
+})();
