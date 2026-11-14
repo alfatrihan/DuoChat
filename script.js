@@ -936,7 +936,6 @@ function render(m) {
       e.stopPropagation();
       if (!activePeer) return;
       socket.emit('react', { peerId: activePeer.id, id: m.id, emoji: emo });
-      duoBlast(emo);
       applyReaction(m.id, emo);
     };
     rBar.append(rb);
@@ -1204,7 +1203,7 @@ socket.on('status', ({ roomKey, ids, status }) => {
 });
 
 socket.on('react', ({ roomKey, id, emoji }) => {
-  if (roomKey === activeRoomKey) { applyReaction(id, emoji); duoBlast(emoji); }
+  if (roomKey === activeRoomKey) applyReaction(id, emoji);
 });
 
 function markSeen() {
@@ -1335,7 +1334,6 @@ let voiceTimerInterval = null;
 let voiceShouldSend = false;
 
 function stopVoiceUI() {
-  if (duoVoiceContext) { duoVoiceContext.close().catch(() => {}); duoVoiceContext = null; }
   clearInterval(voiceTimerInterval);
   $('voiceRecBar').classList.add('hidden');
   $('voiceBtn').classList.remove('active');
@@ -1359,7 +1357,7 @@ $('voiceBtn').onclick = async () => {
     voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     voiceChunks = [];
     voiceShouldSend = false;
-    mediaRecorder = new MediaRecorder(await duoVoiceStream(voiceStream));
+    mediaRecorder = new MediaRecorder(voiceStream);
 
     mediaRecorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) voiceChunks.push(e.data);
@@ -2002,68 +2000,3 @@ socket.on('disconnect', () => {
 
 renderAvatarGallery();
 setAuthMode('login');
-
-
-/* Duo v14 — additive interactions, original theme and chat protocol retained. */
-let duoVoiceContext = null, duoType = 'poll', duoRoom = '', duoCelebrated = '';
-let duoAudio = null, duoLastTone = 0;
-const duoPaths = {
- send:'M22 2 9 15M22 2l-7 20-6-7-7-6Z',copy:'M9 9h12v12H9zM15 9V3H3v12h6',clear:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7',search:'M21 21l-6-6M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0',close:'M6 6l12 12M18 6 6 18',heart:'M20 4c-3-2-6 0-8 2-2-2-5-4-8-2-5 4 0 10 8 16 8-6 13-12 8-16Z',play:'M8 4v16l12-8Z',plus:'M12 3v18M3 12h18',login:'M14 3h7v18h-7M3 12h13m-5-5 5 5-5 5',refresh:'M20 8a8 8 0 1 0 0 8M20 2v6h-6',sound:'M3 9h4l5-5v16l-5-5H3ZM16 8q6 4 0 8',poll:'M5 20V10m7 10V4m7 16v-7',key:'M14 10l7 7-3 3-2-2-2 2-3-3M15 7a5 5 0 1 1-10 0 5 5 0 0 1 10 0',check:'M4 12l5 5L20 6'
-};
-function duoIcon(name) { return `<svg class="duo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${duoPaths[name]||duoPaths.play}"/></svg>`; }
-// Keep semantic labels for assistive tech; only action text is visually replaced.
-function duoSymbols(root=document) {
-  root.querySelectorAll('button').forEach(b=>{
-    if(b.querySelector('svg,img') || b.closest('#avatarGallery,#moodMenu,#emojiMenu,#emojis,.react-bar,.game-board,.rps-choices,.connect4-board') || b.classList.contains('game-tile') || b.dataset.duoPreserve) return;
-    const label=b.textContent.trim();
-    if(!label || !/[A-Za-z]/.test(label) || /^[XO]+$/.test(label)) return;
-    const key=/copy/i.test(label)?'copy':/clear|delete/i.test(label)?'clear':/search/i.test(label)?'search':/cancel|close|×/i.test(label)?'close':/sign|join|enter/i.test(label)?'login':/poll/i.test(label)?'poll':/secret|quiz/i.test(label)?'key':/new|create|request/i.test(label)?'plus':/restart|again|↻/i.test(label)?'refresh':/send/i.test(label)?'send':'play';
-    b.title=b.title||label;b.setAttribute('aria-label',label);b.innerHTML=duoIcon(key);
-  });
-}
-duoSymbols();
-let duoSymbolQueued=false;
-new MutationObserver(()=>{if(!duoSymbolQueued){duoSymbolQueued=true;queueMicrotask(()=>{duoSymbolQueued=false;duoSymbols();});}}).observe(document.body,{childList:true,subtree:true});
-const duoBar=document.createElement('div');duoBar.className='duo-tools';
-duoBar.innerHTML=`<button type="button" id="duoHeartbeat" class="game-action" title="Send heartbeat" aria-label="Send heartbeat">${duoIcon('heart')}</button><label title="Voice effect"><select id="duoVoice"><option value="natural">Natural voice</option><option value="warm">Warm voice</option><option value="radio">Radio voice</option><option value="robot">Robot voice</option></select></label><button type="button" id="duoSound" class="game-action" title="Enable sound and haptics" aria-label="Enable sound and haptics">${duoIcon('sound')}</button><span id="duoAura" class="duo-aura" title="Your mood / partner mood"></span>`;
-$('activeChatView').prepend(duoBar);
-if(!$('duoCards')) {const cards=document.createElement('div');cards.id='duoCards';$('msgs').before(cards);}
-function duoEmit(payload){if(!activePeer)return showToast('Open a chat first.');socket.emit('duo',{peerId:activePeer.id,...payload},res=>{if(res?.error)showToast(res.error);});}
-$('duoHeartbeat').onclick=()=>duoEmit({kind:'heartbeat'});
-let duoHold=null,duoOrigin=null;
-$('activeChatView').addEventListener('pointerdown',e=>{if(e.button!==0 || e.target.closest('button,a,input,audio,select,textarea,label'))return;duoOrigin=[e.clientX,e.clientY];duoHold=setTimeout(()=>{duoHold=null;duoEmit({kind:'heartbeat'});},800);});
-for(const event of ['pointerup','pointercancel','pointerleave'])$('msgs').addEventListener(event,()=>clearTimeout(duoHold));
-$('activeChatView').addEventListener('pointermove',e=>{if(duoOrigin&&Math.hypot(e.clientX-duoOrigin[0],e.clientY-duoOrigin[1])>12)clearTimeout(duoHold);});
-function duoBlast(symbol='✦'){
- if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
- const layer=document.createElement('div');layer.className='duo-blast';layer.setAttribute('aria-hidden','true');
- for(let i=0;i<18;i++){const s=document.createElement('span');s.textContent=symbol;s.style.left=(10+Math.random()*80)+'%';s.style.setProperty('--drift',(Math.random()*180-90)+'px');s.style.animationDelay=Math.random()*.3+'s';layer.append(s);}document.body.append(layer);setTimeout(()=>layer.remove(),1800);
-}
-socket.on('duo-signal',data=>{if(data.roomKey!==activeRoomKey)return;if(data.kind==='heartbeat'){navigator.vibrate?.([40,60,40]);duoBlast('♥');showToast('Your partner sent a heartbeat.');}else showToast('Possible screenshot shortcut used by your partner. Browser detection is limited.');});
-let duoCaptureAt=0;
-document.addEventListener('keyup',e=>{if(e.key==='PrintScreen'&&activePeer&&Date.now()-duoCaptureAt>3000){duoCaptureAt=Date.now();duoEmit({kind:'capture'});showToast('Screenshot shortcut noticed. Partner alerted; capture cannot be confirmed.');}});
-let duoSoundOn=localStorage.getItem('duoSound')==='true';
-$('duoSound').setAttribute('aria-pressed',duoSoundOn);
-$('duoSound').onclick=()=>{duoSoundOn=!duoSoundOn;localStorage.setItem('duoSound',duoSoundOn);$('duoSound').setAttribute('aria-pressed',duoSoundOn);showToast(duoSoundOn?'Sound and haptics on':'Sound and haptics off');duoTone(true);};
-function duoTone(sent=false){if(!duoSoundOn||Date.now()-duoLastTone<(sent?40:100))return;duoLastTone=Date.now();try{duoAudio ||= new (window.AudioContext||window.webkitAudioContext)();duoAudio.resume().catch(()=>{});const o=duoAudio.createOscillator(),g=duoAudio.createGain();o.frequency.value=sent?740:440;g.gain.setValueAtTime(.025,duoAudio.currentTime);g.gain.exponentialRampToValueAtTime(.001,duoAudio.currentTime+.05);o.connect(g).connect(duoAudio.destination);o.start();o.stop(duoAudio.currentTime+.06);navigator.vibrate?.(sent?15:5);}catch{}}
-$('input').addEventListener('input',()=>duoTone());$('send').addEventListener('click',()=>{if($('input').value.trim())duoTone(true);},true);
-async function duoVoiceStream(stream){
- const effect=$('duoVoice').value;if(effect==='natural')return stream;
- duoVoiceContext=new (window.AudioContext||window.webkitAudioContext)();await duoVoiceContext.resume();
- const source=duoVoiceContext.createMediaStreamSource(stream),dest=duoVoiceContext.createMediaStreamDestination();
- if(effect==='robot'){const gain=duoVoiceContext.createGain(),osc=duoVoiceContext.createOscillator();gain.gain.value=0;osc.frequency.value=35;osc.connect(gain.gain);source.connect(gain).connect(dest);osc.start();}
- else{const filter=duoVoiceContext.createBiquadFilter();filter.type=effect==='radio'?'bandpass':'lowpass';filter.frequency.value=effect==='radio'?1500:900;filter.Q.value=effect==='radio'?1:.7;source.connect(filter).connect(dest);}return dest.stream;
-}
-document.querySelectorAll('[data-duo-create]').forEach(b=>b.onclick=()=>{if(!activePeer)return showToast('Open a chat first.');duoType=b.dataset.duoCreate;$('duoCreateForm').classList.remove('hidden');$('duoOptions').classList.toggle('hidden',duoType!=='poll');$('duoSecret').classList.toggle('hidden',duoType==='poll');$('duoQuestion').focus();});
-$('duoCancel').onclick=()=>$('duoCreateForm').classList.add('hidden');
-$('duoCreateForm').onsubmit=e=>{e.preventDefault();if(!activePeer)return;socket.emit('duo',{peerId:activePeer.id,kind:'create',type:duoType,question:$('duoQuestion').value,options:$('duoOptions').value.split('|'),secret:$('duoSecret').value},res=>{if(res?.error)return showToast(res.error);$('duoCreateForm').reset();$('duoCreateForm').classList.add('hidden');closeModal('gamesModal');});};
-socket.on('duo-state',({roomKey,cards})=>{if(roomKey!==activeRoomKey)return;const host=$('duoCards');host.replaceChildren();cards.forEach(c=>{const card=document.createElement('section');card.className='duo-card';const title=document.createElement('b');title.textContent=c.question;card.append(title);if(c.type==='poll'){c.options.forEach((text,i)=>{const b=document.createElement('button');b.type='button';b.className='game-action';b.dataset.duoPreserve='1';const count=Object.values(c.answers).filter(v=>v===i).length;b.textContent=`${text} · ${count}`;b.setAttribute('aria-pressed',c.answers[cid]===i);b.onclick=()=>duoEmit({kind:'answer',id:c.id,answer:i});card.append(b);});}else if(c.owner===cid){const t=document.createElement('small');t.textContent=Object.values(c.answers).some(a=>a.correct)?'Partner solved it!':'Waiting for your partner · up to 5 attempts';card.append(t);}else{const result=c.answers[cid];const form=document.createElement('form'),input=document.createElement('input'),b=document.createElement('button');input.maxLength=60;input.required=true;input.placeholder=c.type==='secret'?'Guess the secret':'Your answer';b.type='submit';b.className='game-action';b.title='Submit answer';b.setAttribute('aria-label','Submit answer');b.innerHTML=duoIcon('check');input.disabled=b.disabled=!!result?.correct||result?.attempts>=5;form.append(input,b);form.onsubmit=e=>{e.preventDefault();duoEmit({kind:'answer',id:c.id,answer:input.value});};card.append(form);const t=document.createElement('small');t.textContent=result?(result.correct?'Correct!':`Try again · ${result.attempts}/5 attempts`):'Only your partner knows the answer.';card.append(t);}host.append(card);});});
-setInterval(()=>{
- if(duoRoom!==activeRoomKey){duoRoom=activeRoomKey;$('duoCards').replaceChildren();duoCelebrated='';if(activePeer?.online&&socket.connected)duoEmit({kind:'sync'});}
- const both=activePeer?.online&&socket.connected;
- const marker=both?activeRoomKey:'';
- if(marker&&duoCelebrated!==marker){duoBlast('✦');duoCelebrated=marker;}if(!both)duoCelebrated='';
- $('duoAura').textContent=activePeer?`${myMood||'◌'} · ${activePeer.mood||'◌'}`:'';
- $('duoAura').classList.toggle('is-live',!!both);
-},1000);
-socket.on('connect',()=>{duoRoom='';});

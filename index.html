@@ -74,7 +74,7 @@
       <div id="authError" class="err" role="alert"></div>
 
       <!-- Facebook-style bottom Create Account / Sign In switch -->
-      <div id="authSwitchFooter" class="auth-switch-footer" hidden>
+      <div id="authSwitchFooter" class="auth-switch-footer">
         <div class="auth-divider"><span>or</span></div>
         <p id="authSwitchPrompt" class="auth-switch-text">Don't have an account?</p>
         <button type="button" id="registerTab" class="create-account-btn">Create new account</button>
@@ -391,19 +391,7 @@
           <button class="close-modal" data-close="gamesModal" aria-label="Close">×</button>
         </div>
 
-        <div class="duo-tools" id="duoTools">
-<button type="button" class="game-action" data-duo-create="poll" title="Quick Duo Poll">Quick Duo Poll</button>
-<button type="button" class="game-action" data-duo-create="quiz" title="Mini Quiz">Mini Quiz</button>
-<button type="button" class="game-action" data-duo-create="secret" title="Secret Passcode">Secret Passcode</button>
-</div>
-<form id="duoCreateForm" class="hidden duo-card">
-<input id="duoQuestion" placeholder="Question or passcode clue" maxlength="160" required>
-<input id="duoOptions" placeholder="Poll options, separated by |" maxlength="243">
-<input id="duoSecret" placeholder="Secret answer (never sent to partner)" maxlength="60" autocomplete="off">
-<button class="game-action" type="submit">Create</button>
-<button class="game-action" type="button" id="duoCancel">Cancel</button>
-</form>
-<div id="gamePickerGrid" class="game-grid">
+        <div id="gamePickerGrid" class="game-grid">
           <button class="game-tile tic-tile" data-game="tictactoe">
             <span class="game-symbol">✕ ○</span>
             <b>Tic-Tac-Toe</b>

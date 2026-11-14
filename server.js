@@ -450,55 +450,6 @@ io.on('connection', (socket) => {
     return null;
   }
 
-
-  // Duo extensions use the same authorized account/quick-room context.
-  const duoRates = new Map();
-  socket.on('duo', (payload = {}, cb = () => {}) => {
-    const ctx = resolveActiveContext(payload.peerId);
-    if (!ctx || !ctx.peerId) return cb({error:'Open a chat with a partner first.'});
-    const {kind} = payload;
-    const allowed = ['sync','heartbeat','capture','create','answer'];
-    if (!allowed.includes(kind)) return cb({error:'Unknown action.'});
-    const now = Date.now(), gap = kind === 'heartbeat' ? 1500 : 150;
-    if (now - (duoRates.get(kind) || 0) < gap) return cb({error:'Please wait a moment.'});
-    duoRates.set(kind, now);
-    const conv = ctx.conv;
-    conv.duoCards ||= [];
-    const publish = () => {
-      const state = {roomKey:ctx.roomKey, cards:conv.duoCards.map(({secret,...card})=>card)};
-      emitToUser(ctx.me.id,'duo-state',state);
-      emitToUser(ctx.peerId,'duo-state',state);
-    };
-    if (kind === 'sync') { publish(); return cb({ok:true}); }
-    if (kind === 'heartbeat' || kind === 'capture') {
-      emitToUser(ctx.peerId,'duo-signal',{roomKey:ctx.roomKey,kind,from:ctx.me.name});
-      return cb({ok:true});
-    }
-    if (kind === 'create') {
-      if (!['poll','quiz','secret'].includes(payload.type)) return cb({error:'Invalid game.'});
-      const question = clip(payload.question,160).trim();
-      const options = Array.isArray(payload.options) ? payload.options.slice(0,4).map(x=>clip(x,60).trim()).filter(Boolean) : [];
-      const secret = clip(payload.secret,60).trim().toLowerCase();
-      if (!question || (payload.type==='poll' && (options.length<2 || new Set(options).size!==options.length)) || (payload.type!=='poll' && !secret)) return cb({error:'Complete the question and answers.'});
-      conv.duoCards.push({id:require('node:crypto').randomUUID(),type:payload.type,question,options,secret,owner:ctx.me.id,answers:{},created:now});
-      conv.duoCards = conv.duoCards.slice(-12);
-    } else {
-      const card = conv.duoCards.find(c=>c.id===payload.id);
-      if (!card) return cb({error:'This challenge has expired.'});
-      if (card.type==='poll') {
-        const n=payload.answer;
-        if (!Number.isInteger(n) || n<0 || n>=card.options.length) return cb({error:'Choose an option.'});
-        card.answers[ctx.me.id]=n;
-      } else {
-        if (card.owner===ctx.me.id) return cb({error:'Your partner answers this challenge.'});
-        const old=card.answers[ctx.me.id];
-        if (old?.correct || old?.attempts>=5) return cb({error:'Challenge finished.'});
-        card.answers[ctx.me.id]={correct:clip(payload.answer,60).trim().toLowerCase()===card.secret,attempts:(old?.attempts||0)+1};
-      }
-    }
-    publish(); cb({ok:true});
-  });
-
   socket.on('weather', ({ peerId, weather } = {}) => {
     const ctx = resolveActiveContext(peerId);
     if (!ctx) return;
