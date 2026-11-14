@@ -51,11 +51,22 @@ function setTheme(t) {
 }
 let saved = null;
 try { saved = localStorage.getItem('theme'); } catch (e) {}
-setTheme(saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+setTheme(saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'midnight' : 'light'));
 $('themeBtn').onclick = () => {
-  setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
-  showToast('Switched Light/Dark mode');
+  const current = document.documentElement.dataset.theme;
+  setTheme(['light','sakura'].includes(current) ? 'midnight' : 'light');
+  showToast('Theme updated');
 };
+function openModal(id) { $(id).classList.remove('hidden'); }
+function closeModal(id) { $(id).classList.add('hidden'); }
+$('themePresetsBtn').onclick = () => { closeAllMenus(); openModal('themesModal'); };
+document.querySelectorAll('[data-close]').forEach((b) => b.onclick = () => closeModal(b.dataset.close));
+document.querySelectorAll('.modal').forEach((m) => m.addEventListener('click', (e) => { if (e.target === m) m.classList.add('hidden'); }));
+document.querySelectorAll('[data-theme-choice]').forEach((b) => b.onclick = () => {
+  setTheme(b.dataset.themeChoice);
+  closeModal('themesModal');
+  showToast(`${b.querySelector('b').textContent} theme applied ✦`);
+});
 
 /* ---------- Synced Weather Atmosphere Engine ---------- */
 const WEATHER_META = {
@@ -190,7 +201,7 @@ function closeAllMenus() {
   $('moodMenu').classList.add('hidden');
   $('moreMenu').classList.add('hidden');
 }
-document.addEventListener('click', closeAllMenus);
+document.addEventListener('click', (e) => { closeAllMenus(); if (!e.target.closest('.message-actions') && !e.target.closest('.message-menu-btn')) document.querySelectorAll('.message-actions').forEach(x => x.classList.add('hidden')); });
 
 $('weatherBtn').onclick = (e) => {
   e.stopPropagation();
@@ -239,6 +250,11 @@ function doJoin(onDone) {
     peerOnline = !!res.peer;
     if (res.peerMood) updatePeerMood(res.peerMood);
     res.history.forEach(render);
+    if (res.game) {
+      activeGame = res.game.type;
+      $('gameStage').classList.remove('hidden');
+      renderGame(res.game);
+    }
     updateHeader();
     markSeen();
     onDone(null, res.weather || 'clear');
@@ -324,16 +340,6 @@ $('inviteBtn').onclick = () => {
     showToast(`Passkey: ${creds.room}`);
   });
 };
-
-/* ---------- Panic Mode (Esc Key or Button) ---------- */
-function togglePanic() {
-  $('panicScreen').classList.toggle('hidden');
-}
-$('panicBtn').onclick = togglePanic;
-$('exitPanicBtn').onclick = togglePanic;
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') togglePanic();
-});
 
 /* ---------- Vanish & Spoiler Toggles ---------- */
 function updateModeStrip() {
@@ -439,7 +445,31 @@ function render(m) {
     e.stopPropagation();
     setReply({ name: m.name, text: m.spoiler ? '🔒 Spoiler message' : (m.text || '📷 Photo') });
   };
-  meta.append(rb, el('span', '', fmtTime(m.time)));
+  meta.append(rb);
+  if (m.edited) meta.append(el('span', 'edited-label', 'edited'));
+  meta.append(el('span', '', fmtTime(m.time)));
+
+  const menuBtn = el('button', 'act-btn message-menu-btn', '⋯');
+  menuBtn.title = 'Message actions';
+  const actionMenu = el('div', 'message-actions hidden');
+  const addAction = (label, fn, danger = false) => {
+    const b = el('button', danger ? 'danger-text' : '', label);
+    b.onclick = (e) => { e.stopPropagation(); actionMenu.classList.add('hidden'); fn(); };
+    actionMenu.append(b);
+  };
+  if (mine && m.text && !m.image && !m.vanish) {
+    addAction('✎ Edit message', () => editMessage(m.id));
+    addAction('⌫ Delete for everyone', () => {
+      if (confirm('Delete this message for both people?')) socket.emit('delete-message', { id: m.id }, (res) => { if (res && res.error) showToast(res.error); });
+    }, true);
+  }
+  addAction('Hide for me (this session)', () => {
+    d.remove();
+    delete items[m.id];
+  });
+  menuBtn.onclick = (e) => { e.stopPropagation(); document.querySelectorAll('.message-actions').forEach(x => { if (x !== actionMenu) x.classList.add('hidden'); }); actionMenu.classList.toggle('hidden'); };
+  meta.append(menuBtn);
+  d.append(actionMenu);
 
   let tick = null;
   if (mine) {
@@ -459,6 +489,36 @@ function render(m) {
   if (m.status === 'seen' && m.vanish) startVanishCountdown(m.id);
   scrollDown();
 }
+
+function editMessage(id) {
+  const it = items[id];
+  if (!it || it.m.from !== cid || !it.m.text) return;
+  const next = prompt('Edit your message:', it.m.text);
+  if (next === null || !next.trim() || next.trim() === it.m.text) return;
+  socket.emit('edit-message', { id, text: next.trim() }, (res) => {
+    if (res && res.error) showToast(res.error);
+    else showToast('Message updated ✦');
+  });
+}
+socket.on('message-edited', ({ id, text, edited }) => {
+  const it = items[id];
+  if (!it) return;
+  it.m.text = text; it.m.edited = edited;
+  const txt = it.el.querySelector('.txt');
+  if (txt) txt.textContent = text;
+  else it.el.insertBefore(el('div','txt',text), it.el.querySelector('.meta'));
+  let label = it.el.querySelector('.edited-label');
+  if (!label) {
+    label = el('span','edited-label','edited');
+    const meta = it.el.querySelector('.meta');
+    meta.insertBefore(label, meta.querySelector('.tick'));
+  }
+});
+socket.on('message-deleted', ({ id }) => {
+  const it = items[id];
+  if (it) { it.el.remove(); delete items[id]; }
+  showToast('Message deleted for everyone');
+});
 
 function applyReaction(id, emoji) {
   const it = items[id];
@@ -575,6 +635,100 @@ $('file').onchange = (e) => {
 /* ---------- Clear Chat ---------- */
 $('clearBtn').onclick = () => { if (confirm('Clear the whole conversation for both of you?')) socket.emit('clear'); };
 socket.on('clear', () => { $('msgs').innerHTML = ''; Object.keys(items).forEach((k) => delete items[k]); });
+
+/* ---------- DuoPlay: Truth or Dare, Tic-Tac-Toe, Rock Paper Scissors ---------- */
+const TRUTHS = [
+  'What is one thing you have never told me?',
+  'What was your first impression of me?',
+  'What is a habit you want to change?',
+  'What is your funniest recent memory?',
+  'What is one thing you are secretly proud of?',
+  'If you could revisit one day, which would it be?'
+];
+const DARES = [
+  'Send your best silly selfie (or draw one).',
+  'Describe the other player using only three emojis.',
+  'Write a 10-word compliment.',
+  'Send a voice note saying a tongue twister.',
+  'Use only emojis in your next three messages.',
+  'Make up a funny nickname for the other player.'
+];
+let activeGame = null;
+$('gamesBtn').onclick = () => { openModal('gamesModal'); $('gameStage').classList.add('hidden'); };
+document.querySelectorAll('[data-game]').forEach((b) => b.onclick = () => {
+  const type = b.dataset.game;
+  socket.emit('game-start', { type }, (res) => {
+    if (res && res.error) return showToast(res.error);
+    activeGame = type;
+    $('gameStage').classList.remove('hidden');
+    renderGame({ type });
+  });
+});
+socket.on('game-state', (state) => {
+  activeGame = state.type;
+  $('gameStage').classList.remove('hidden');
+  renderGame(state);
+});
+function gameButton(label, action, primary=false) {
+  const b = el('button', 'game-action' + (primary ? ' primary-action' : ''), label);
+  b.onclick = action;
+  return b;
+}
+function gameTitle(title, desc) {
+  const stage = $('gameStage');
+  stage.innerHTML = '';
+  stage.append(el('h3','',title), el('p','',desc));
+  return stage;
+}
+function renderGame(g) {
+  const stage = $('gameStage');
+  if (g.type === 'truth') {
+    const myTurn = g.turn === cid;
+    const node = gameTitle('♡ Truth or Dare', myTurn ? 'Your turn — choose honestly or boldly.' : 'Your friend is choosing. Get ready!');
+    if (g.prompt) node.append(el('div','game-prompt',`${g.lastAction === 'dare' ? '⚡ Dare' : g.lastAction === 'truth' ? '♡ Truth' : '↷'}: ${g.prompt}`));
+    const actions = el('div','game-actions');
+    if (myTurn) {
+      actions.append(
+        gameButton('♡ Truth', () => sendTruthDare('truth', TRUTHS[Math.floor(Math.random()*TRUTHS.length)]), true),
+        gameButton('⚡ Dare', () => sendTruthDare('dare', DARES[Math.floor(Math.random()*DARES.length)])),
+        gameButton('↷ Skip', () => sendTruthDare('skip','Turn skipped'))
+      );
+    } else actions.append(el('span','game-wait','Waiting for your friend…'));
+    node.append(actions, gameButton('↻ New round', () => socket.emit('game-reset')));
+  } else if (g.type === 'tictactoe') {
+    const mark = g.marks && g.marks[cid];
+    const opponentMark = mark === 'X' ? 'O' : 'X';
+    const node = gameTitle('✕ Tic-Tac-Toe', g.result || (g.turn === cid ? `Your turn (${mark})` : `Friend's turn (${opponentMark})`));
+    const board = el('div','game-board');
+    (g.board || Array(9).fill('')).forEach((value, index) => {
+      const b = el('button','game-cell',value);
+      b.disabled = !!value || !!g.result || g.turn !== cid;
+      b.onclick = () => socket.emit('game-action',{type:'tictactoe',index},(res)=>res&&res.error&&showToast(res.error));
+      board.append(b);
+    });
+    node.append(board, gameButton(g.result ? '↻ Play again' : '↻ Restart round', () => socket.emit('game-reset'), true));
+  } else if (g.type === 'rps') {
+    const node = gameTitle('✊ Rock Paper Scissors', `Round ${Math.max(1,(g.round||1) - (g.lastRound ? 1 : 0))} · You ${g.scores?.[cid]||0} — Friend ${Object.entries(g.scores||{}).filter(([id])=>id!==cid).reduce((n,[,v])=>n+v,0)}`);
+    if (g.lastRound) {
+      const mine = g.lastRound.choices?.[cid];
+      const other = Object.entries(g.lastRound.choices||{}).find(([id])=>id!==cid)?.[1];
+      node.append(el('div','game-prompt',`${({rock:'✊',paper:'✋',scissors:'✌️'})[mine]||'—'}  vs  ${({rock:'✊',paper:'✋',scissors:'✌️'})[other]||'—'} · ${g.lastRound.winner === null ? 'Draw!' : g.lastRound.winner === cid ? 'You won this round!' : 'Friend won this round!'}`));
+    }
+    const choices = el('div','rps-choices');
+    [['rock','✊','Rock'],['paper','✋','Paper'],['scissors','✌️','Scissors']].forEach(([v,emo,label])=>{
+      const b=el('button','',emo); b.append(el('small','',label));
+      b.disabled=!!(g.choices && g.choices[cid]);
+      b.onclick=()=>socket.emit('game-action',{type:'rps',choice:v},(res)=>res&&res.error&&showToast(res.error));
+      choices.append(b);
+    });
+    node.append(choices);
+    if (g.choices && Object.keys(g.choices).length) node.append(el('p','game-wait','Choice locked in — waiting for the other player…'));
+    node.append(gameButton('↻ Reset match',()=>socket.emit('game-reset'),true));
+  }
+}
+function sendTruthDare(action,prompt) {
+  socket.emit('game-action',{type:'truth',action,prompt},(res)=>res&&res.error&&showToast(res.error));
+}
 
 /* ---------- Notification Sound ---------- */
 let audio;

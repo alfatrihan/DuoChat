@@ -1,12 +1,14 @@
 {
   "name": "duo-chat",
-  "version": "3.0.0",
-  "description": "Private real-time 1-on-1 chat with Express and Socket.io",
+  "version": "4.0.0",
+  "description": "DuoChat v4 \u2014 private real-time chat with DuoPlay mini-games, message controls and premium themes",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "express": "^4.19.2",
     "socket.io": "^4.7.5"

@@ -3,38 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>DuoChat — Private 1-on-1 Space</title>
+  <title>DuoChat v4 — Play, Chat & Connect</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Quick Panic / Study Screen (Esc to toggle) -->
-  <div id="panicScreen" class="hidden">
-    <div class="panic-box">
-      <div class="panic-header">
-        <span>📘 Discrete Mathematics & Algorithms — Lecture Notes</span>
-        <button id="exitPanicBtn" title="Return to chat">Back</button>
-      </div>
-      <div class="panic-content">
-        <h3>1. Time Complexity & Asymptotic Notation</h3>
-        <p>For any function $f(n)$ and $g(n)$, we say $f(n) = O(g(n))$ if there exist positive constants $c$ and $n_0$ such that $0 \le f(n) \le c \cdot g(n)$ for all $n \ge n_0$.</p>
-        <pre><code>// Binary Search Implementation - O(log n)
-int binarySearch(int arr[], int l, int r, int x) {
-    while (l <= r) {
-        int m = l + (r - l) / 2;
-        if (arr[m] == x) return m;
-        if (arr[m] < x) l = m + 1;
-        else r = m - 1;
-    }
-    return -1;
-}</code></pre>
-        <p class="panic-hint">Press <b>Esc</b> again to resume your session.</p>
-      </div>
-    </div>
-  </div>
-
   <!-- Join Screen -->
   <section id="join" class="screen">
     <form id="joinForm" class="card glass">
@@ -44,7 +19,7 @@ int binarySearch(int arr[], int l, int r, int x) {
         </svg>
       </div>
       <h1>DuoChat</h1>
-      <p>Your private room for two with synced weather atmospheres. Share a secret passkey to begin.</p>
+      <p>A private space for two. Chat, play and share little moments together.</p>
       
       <div class="input-group">
         <span class="input-icon">
@@ -90,6 +65,7 @@ int binarySearch(int arr[], int l, int r, int x) {
       </div>
 
       <div class="header-actions">
+        <button id="gamesBtn" class="icon-btn feature-btn" title="Play together">🎮</button>
         <!-- Synced Weather Theme Selector -->
         <div class="dropdown-wrap">
           <button id="weatherBtn" class="icon-btn" title="Change Synced Weather Atmosphere">
@@ -133,19 +109,54 @@ int binarySearch(int arr[], int l, int r, int x) {
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
         </button>
 
-        <!-- More Options Menu (Panic, Light/Dark, Clear) to keep mobile header super clean -->
+        <!-- More Options Menu (Themes and chat settings) -->
         <div class="dropdown-wrap">
           <button id="moreBtn" class="icon-btn" title="More options">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
           </button>
           <div id="moreMenu" class="popover-menu hidden">
-            <button id="themeBtn">🌓 Light / Dark Mode</button>
-            <button id="panicBtn">🙈 Quick Hide (Esc)</button>
-            <button id="clearBtn" class="danger-text">🗑️ Clear Chat</button>
+            <button id="themeBtn">◐ Light / Dark Mode</button>
+            <button id="themePresetsBtn">✦ Theme Gallery</button>
+            <button id="clearBtn" class="danger-text">⌫ Clear Chat</button>
           </div>
         </div>
       </div>
     </header>
+
+    <!-- DuoPlay: real-time mini games -->
+    <div id="gamesModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="gamesTitle">
+      <div class="modal-card games-card">
+        <div class="modal-head">
+          <div><span class="eyebrow">DUOPLAY · TWO PLAYER ARCADE</span><h2 id="gamesTitle">Play together <span>✦</span></h2></div>
+          <button class="close-modal" data-close="gamesModal" aria-label="Close">×</button>
+        </div>
+        <div class="game-grid">
+          <button class="game-tile truth-tile" data-game="truth"><span class="game-symbol">♡</span><b>Truth or Dare</b><small>Take a turn. Be honest or be bold.</small><span class="tile-cta">Play now ↗</span></button>
+          <button class="game-tile tic-tile" data-game="tictactoe"><span class="game-symbol">✕ ○</span><b>Tic-Tac-Toe</b><small>A quick classic, just you two.</small><span class="tile-cta">Play now ↗</span></button>
+          <button class="game-tile rps-tile" data-game="rps"><span class="game-symbol">✊ ✋ ✌</span><b>Rock Paper Scissors</b><small>Best of three. Winner takes it.</small><span class="tile-cta">Play now ↗</span></button>
+        </div>
+        <div id="gameStage" class="game-stage hidden"></div>
+        <p class="game-footnote">Both players must be in the same DuoChat room to play.</p>
+      </div>
+    </div>
+
+    <div id="themesModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="themesTitle">
+      <div class="modal-card themes-card">
+        <div class="modal-head">
+          <div><span class="eyebrow">MAKE IT YOUR SPACE</span><h2 id="themesTitle">Choose your vibe <span>✦</span></h2></div>
+          <button class="close-modal" data-close="themesModal" aria-label="Close">×</button>
+        </div>
+        <div class="theme-grid">
+          <button class="theme-swatch" data-theme-choice="midnight"><i class="swatch midnight-swatch"></i><b>Midnight</b><small>Violet · AMOLED</small></button>
+          <button class="theme-swatch" data-theme-choice="aurora"><i class="swatch aurora-swatch"></i><b>Aurora</b><small>Blue · Cyan</small></button>
+          <button class="theme-swatch" data-theme-choice="sakura"><i class="swatch sakura-swatch"></i><b>Sakura</b><small>Rose · Soft</small></button>
+          <button class="theme-swatch" data-theme-choice="ocean"><i class="swatch ocean-swatch"></i><b>Ocean</b><small>Teal · Deep</small></button>
+          <button class="theme-swatch" data-theme-choice="sunset"><i class="swatch sunset-swatch"></i><b>Sunset</b><small>Amber · Warm</small></button>
+          <button class="theme-swatch" data-theme-choice="amoled"><i class="swatch amoled-swatch"></i><b>AMOLED</b><small>Pure black · Lime</small></button>
+        </div>
+        <p class="game-footnote">Your theme is saved on this device. Weather atmospheres remain available.</p>
+      </div>
+    </div>
 
     <!-- Toast Notification Banner -->
     <div id="toast" class="toast hidden"></div>

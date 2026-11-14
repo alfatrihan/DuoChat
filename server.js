@@ -1,4 +1,4 @@
-// server.js - DuoChat v3 Backend (Synced Weather Atmosphere, Vanish Messages, Spoiler Blur, Reactions, Moods, Nudge)
+// server.js - DuoChat v4 Backend (DuoPlay, Message Management, Synced Weather Atmosphere)
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -24,7 +24,7 @@ io.on('connection', (socket) => {
     room = clip(room, 64).trim();
     if (!name || room.length < 4) return cb({ error: 'Enter a name and a passkey of 4+ characters.' });
 
-    const r = (rooms[room] = rooms[room] || { users: {}, history: [], weather: 'clear' });
+    const r = (rooms[room] = rooms[room] || { users: {}, history: [], weather: 'clear', game: null });
 
     for (const id of Object.keys(r.users)) {
       if (r.users[id].cid === cid) {
@@ -46,7 +46,8 @@ io.on('connection', (socket) => {
       history: r.history,
       peer: peer ? peer.name : null,
       peerMood: peer ? peer.mood : '',
-      weather: r.weather || 'clear'
+      weather: r.weather || 'clear',
+      game: r.game || null
     });
 
     socket.to(room).emit('presence', { online: true, name, mood: me.mood });
@@ -106,6 +107,108 @@ io.on('connection', (socket) => {
     const msg = rooms[code].history.find((m) => m.id === id);
     if (msg) msg.reaction = cleanEmoji;
     socket.to(code).emit('react', { id, emoji: cleanEmoji });
+  });
+
+  socket.on('edit-message', ({ id, text }, cb) => {
+    if (!code || !me || !id) return;
+    const r = rooms[code];
+    const msg = r.history.find((item) => item.id === id);
+    if (!msg || msg.from !== me.cid || msg.vanish || msg.image) return cb && cb({ error: 'This message cannot be edited.' });
+    const cleanText = clip(text, 4000).trim();
+    if (!cleanText) return cb && cb({ error: 'Message cannot be empty.' });
+    msg.text = cleanText;
+    msg.edited = true;
+    io.to(code).emit('message-edited', { id, text: cleanText, edited: true });
+    cb && cb({ ok: true });
+  });
+
+  socket.on('delete-message', ({ id }, cb) => {
+    if (!code || !me || !id) return;
+    const r = rooms[code];
+    const index = r.history.findIndex((item) => item.id === id);
+    if (index < 0 || r.history[index].from !== me.cid) return cb && cb({ error: 'You can only delete your own message for everyone.' });
+    r.history.splice(index, 1);
+    io.to(code).emit('message-deleted', { id });
+    cb && cb({ ok: true });
+  });
+
+  // DuoPlay events: the server is authoritative for turn order and results.
+  socket.on('game-start', ({ type }, cb) => {
+    if (!code || !me) return;
+    const valid = ['truth', 'tictactoe', 'rps'];
+    if (!valid.includes(type)) return cb && cb({ error: 'Unknown game.' });
+    const r = rooms[code];
+    if (Object.keys(r.users).length < 2) return cb && cb({ error: 'Your friend must join before starting a game.' });
+    if (type === 'tictactoe') {
+      r.game = { type, board: Array(9).fill(''), turn: me.cid, players: Object.values(r.users).map(u => u.cid), marks: { [me.cid]: 'X' } };
+      const peer = Object.values(r.users).find(u => u.cid !== me.cid);
+      r.game.marks[peer.cid] = 'O';
+    } else if (type === 'rps') {
+      r.game = { type, round: 1, choices: {}, scores: {} };
+    } else {
+      r.game = { type, turn: me.cid, prompt: null, completed: false };
+    }
+    io.to(code).emit('game-state', r.game);
+    cb && cb({ ok: true });
+  });
+
+  socket.on('game-action', (payload, cb) => {
+    if (!code || !me || !payload) return;
+    const r = rooms[code], g = r.game;
+    if (!g || g.type !== payload.type) return cb && cb({ error: 'No active game.' });
+    if (g.type === 'tictactoe') {
+      const i = Number(payload.index);
+      if (!Number.isInteger(i) || i < 0 || i > 8 || g.turn !== me.cid || g.board[i]) return cb && cb({ error: 'That move is not available.' });
+      g.board[i] = g.marks[me.cid];
+      const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+      const winner = lines.some(line => line.every(n => g.board[n] === g.board[line[0]])) ? me.cid : null;
+      const draw = !winner && g.board.every(Boolean);
+      g.result = winner ? `${me.name} wins!` : draw ? 'It is a draw!' : null;
+      if (!winner && !draw) g.turn = g.players.find(id => id !== me.cid);
+      io.to(code).emit('game-state', g);
+    } else if (g.type === 'rps') {
+      const choice = payload.choice;
+      if (!['rock', 'paper', 'scissors'].includes(choice)) return cb && cb({ error: 'Invalid choice.' });
+      if (g.choices[me.cid]) return cb && cb({ error: 'You already chose this round.' });
+      g.choices[me.cid] = choice;
+      const playerIds = Object.keys(r.users).map(id => r.users[id].cid);
+      if (playerIds.every(id => g.choices[id])) {
+        const [a, b] = playerIds;
+        const ca = g.choices[a], cbChoice = g.choices[b];
+        let winner = ca === cbChoice ? null : ((ca === 'rock' && cbChoice === 'scissors') || (ca === 'paper' && cbChoice === 'rock') || (ca === 'scissors' && cbChoice === 'paper') ? a : b);
+        g.scores[a] = (g.scores[a] || 0) + (winner === a ? 1 : 0);
+        g.scores[b] = (g.scores[b] || 0) + (winner === b ? 1 : 0);
+        g.lastRound = { choices: { [a]: ca, [b]: cbChoice }, winner };
+        g.choices = {};
+        g.round += 1;
+      }
+      io.to(code).emit('game-state', g);
+    } else if (g.type === 'truth') {
+      if (g.turn !== me.cid) return cb && cb({ error: 'Wait for your turn.' });
+      const action = payload.action;
+      if (!['truth', 'dare', 'skip', 'next'].includes(action)) return cb && cb({ error: 'Invalid action.' });
+      g.prompt = clip(payload.prompt, 240);
+      g.lastAction = action;
+      g.turn = Object.values(r.users).map(u => u.cid).find(id => id !== me.cid);
+      io.to(code).emit('game-state', g);
+    }
+    cb && cb({ ok: true });
+  });
+
+  socket.on('game-reset', () => {
+    if (!code || !me) return;
+    const g = rooms[code].game;
+    if (!g) return;
+    if (g.type === 'tictactoe') {
+      g.board = Array(9).fill('');
+      g.turn = me.cid;
+      g.result = null;
+    } else if (g.type === 'rps') {
+      g.round = 1; g.choices = {}; g.scores = {}; g.lastRound = null;
+    } else {
+      g.turn = me.cid; g.prompt = null; g.lastAction = null;
+    }
+    io.to(code).emit('game-state', g);
   });
 
   socket.on('mood', (mood) => {
