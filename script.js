@@ -842,12 +842,12 @@ socket.on('inbox-sync', (data) => {
 
 socket.on('friend-request-received', ({ from }) => {
   beep(740);
-  showToast(`👋 ${from.name} (@${from.username}) sent you a friend request!`);
+  showToast(`↗ ${from.name} (@${from.username}) sent you a friend request!`);
 });
 
 socket.on('friend-accepted', ({ by }) => {
   beep(880);
-  showToast(`🎉 ${by.name} accepted your friend request!`);
+  showToast(`✦ ${by.name} accepted your friend request!`);
 });
 
 socket.on('friend-presence', ({ userId, online, mood, name, gender, avatar }) => {
@@ -892,20 +892,6 @@ socket.on('weather', ({ roomKey, weather, by }) => {
   }
 });
 
-socket.on('nudge', ({ fromId, fromName }) => {
-  beep(620);
-  showToast(`🔔 ${fromName} nudged you!`);
-  if (activePeer && activePeer.id === fromId) {
-    triggerShake();
-  }
-});
-
-$('nudgeBtn').onclick = () => {
-  if (!activePeer) return;
-  socket.emit('nudge', { peerId: activePeer.id });
-  triggerShake();
-  showToast(`🔔 You nudged ${activePeer.name}!`);
-};
 
 function triggerShake() {
   const c = $('activeChatView');
@@ -926,7 +912,7 @@ $('vanishBtn').onclick = () => { vanishMode = !vanishMode; updateModeStrip(); };
 $('spoilerBtn').onclick = () => { spoilerMode = !spoilerMode; updateModeStrip(); };
 
 /* ---------- Rendering Messages ---------- */
-const TICKS = { sending: '🕒', sent: '✓', delivered: '✓✓', seen: '✓✓' };
+const TICKS = { sending: '◷', sent: '✓', delivered: '✓✓', seen: '✓✓' };
 function setStatus(id, status) {
   const it = items[id];
   if (!it) return;
@@ -971,7 +957,7 @@ function render(m) {
   d.dataset.id = m.id;
 
   const rBar = el('div', 'react-bar');
-  ['❤️', '😂', '👍', '😮', '😢', '🔥', '🤲'].forEach((emo) => {
+  ['❤️', '😂', '👍', '😮', '😢', '😡', '🤲'].forEach((emo) => {
     const rb = el('button', '', emo);
     rb.onclick = (e) => {
       e.stopPropagation();
@@ -984,12 +970,12 @@ function render(m) {
   d.append(rBar);
 
   if (m.spoiler) {
-    const sb = el('div', 'spoiler-badge', '👁️‍🗨️ Tap to reveal spoiler');
+    const sb = el('div', 'spoiler-badge', 'Tap to reveal spoiler');
     d.append(sb);
     d.onclick = (e) => {
       if (e.target.closest('button')) return;
       d.classList.toggle('revealed');
-      sb.textContent = d.classList.contains('revealed') ? '👁️ Spoiler revealed' : '👁️‍🗨️ Tap to reveal spoiler';
+      sb.textContent = d.classList.contains('revealed') ? '◉ Spoiler revealed' : 'Tap to reveal spoiler';
     };
   }
 
@@ -1022,7 +1008,7 @@ function render(m) {
 
   const meta = el('div', 'meta');
   if (m.vanish) {
-    meta.append(el('span', 'vanish-indicator', '⏱️ 10s'));
+    meta.append(el('span', 'vanish-indicator', '10s'));
   }
 
   const rb = el('button', 'act-btn');
@@ -1031,7 +1017,7 @@ function render(m) {
   rb.title = 'Reply';
   rb.onclick = (e) => {
     e.stopPropagation();
-    setReply({ name: m.name, text: m.spoiler ? '🔒 Spoiler message' : m.audio ? '🎤 Voice message' : m.text || '📷 Photo' });
+    setReply({ name: m.name, text: m.spoiler ? '▣ Spoiler message' : m.audio ? 'Voice message' : m.text || '▧ Photo' });
   };
   meta.append(rb);
   if (m.edited) meta.append(el('span', 'edited-label', 'edited'));
@@ -1184,7 +1170,7 @@ function send(image) {
 
   playSendSound();
   render({ ...m, from: cid, name: currentAccount.name, time: now, status: 'sending' });
-  updateSidebarPreview(activePeer.id, spoilerMode ? '🔒 Spoiler message' : image ? '📷 Photo' : text, now, true, false);
+  updateSidebarPreview(activePeer.id, spoilerMode ? '▣ Spoiler message' : image ? '▧ Photo' : text, now, true, false);
 
   socket.emit('msg', m, (status) => {
     if (status && status.error) return showToast(status.error);
@@ -1227,7 +1213,7 @@ socket.on('msg', (m) => {
 
   updateSidebarPreview(
     peerId,
-    m.spoiler ? '🔒 Spoiler message' : m.audio ? '🎤 Voice message' : m.image ? '📷 Photo' : m.text,
+    m.spoiler ? '▣ Spoiler message' : m.audio ? 'Voice message' : m.image ? '▧ Photo' : m.text,
     m.time,
     m.from === cid,
     !isCurrentChat && m.from !== cid
@@ -1239,7 +1225,7 @@ socket.on('msg', (m) => {
     markSeen();
   } else if (m.from !== cid) {
     beep(880);
-    showToast(`💬 ${m.name}: ${m.spoiler ? 'Spoiler message' : m.audio ? 'Sent a voice message' : m.image ? 'Sent a photo' : m.text.slice(0, 40)}`);
+    showToast(`◇ ${m.name}: ${m.spoiler ? 'Spoiler message' : m.audio ? 'Sent a voice message' : m.image ? 'Sent a photo' : m.text.slice(0, 40)}`);
   }
 });
 
@@ -1292,15 +1278,18 @@ function buildVoicePlayer(audioSrc, initialDuration, morph = 'normal') {
   });
 
   const morphLabels = {
-    normal: '🎤 Voice',
-    chipmunk: '🐿️ Helium',
-    deep: '🦍 Deep',
-    robot: '🤖 Echo',
-    radio: '📻 Retro'
+    normal: 'Voice',
+    female: 'Female',
+    old: 'Old',
+    baby: 'Baby',
+    chipmunk: 'Helium',
+    deep: 'Deep',
+    robot: 'Echo',
+    radio: 'Retro'
   };
   const metaRow = el('div', 'voice-meta-row');
   const timeLbl = el('span', '', fmtDuration(initialDuration));
-  const tagLbl = el('span', morph !== 'normal' ? 'voice-morph-badge' : '', morphLabels[morph] || '🎤 Voice');
+  const tagLbl = el('span', morph !== 'normal' ? 'voice-morph-badge' : '', morphLabels[morph] || 'Voice');
   metaRow.append(timeLbl, tagLbl);
 
   waveWrap.append(barsRow, metaRow);
@@ -1308,7 +1297,10 @@ function buildVoicePlayer(audioSrc, initialDuration, morph = 'normal') {
 
   const audioObj = new Audio(audioSrc);
   audioObj.preload = 'metadata';
-  if (morph === 'chipmunk') {
+  if (['female', 'old', 'baby'].includes(morph)) {
+    audioObj.preservesPitch = false;
+    audioObj.playbackRate = { female: 1.18, old: 0.86, baby: 1.48 }[morph];
+  } else if (morph === 'chipmunk') {
     audioObj.preservesPitch = false;
     audioObj.playbackRate = 1.38;
   } else if (morph === 'deep') {
@@ -1386,7 +1378,7 @@ function sendVoiceNote(audioDataUrl, durationSec) {
 
   playSendSound();
   render({ ...m, from: cid, name: currentAccount.name, time: now, status: 'sending' });
-  updateSidebarPreview(activePeer.id, spoilerMode ? '🔒 Spoiler message' : '🎤 Voice message', now, true, false);
+  updateSidebarPreview(activePeer.id, spoilerMode ? '▣ Spoiler message' : 'Voice message', now, true, false);
 
   socket.emit('msg', m, (status) => {
     if (status && status.error) return showToast(status.error);
@@ -1498,7 +1490,7 @@ function setReply(r) {
 }
 $('rClose').onclick = () => setReply(null);
 
-Array.from('😀😁😂🤣😊😍😘😎🤔😅😭😡🥳😴🤗🙄😉😇🥺😢🤲👍👎👏🙌🙏💪👋🤝❤️💔🔥✨🎉🎂🍕☕🌹⭐💯✅❌👀🚀🌙☀️🎵').forEach(
+Array.from('😀😁😂🤣😊😍😘😎🤔😅😭😡🥳😴🤗🙄😉😇🥺😢🤲👍👎👏🙌🙏💪↗🤝❤️💔🔥✨✦🎂🍕☕🌹⭐💯✅❌👀🚀🌙☀️🎵').forEach(
   (ch) => {
     const b = el('button', '', ch);
     b.type = 'button';
@@ -1614,7 +1606,7 @@ function renderGame(g) {
   const head = el('div', 'game-stage-head');
   const titleMap = {
     tictactoe: '✕ Tic-Tac-Toe',
-    rps: '✊ Rock Paper Scissors',
+    rps: '◇ Rock Paper Scissors',
     connect4: '● Connect Four'
   };
   head.append(
@@ -1657,7 +1649,7 @@ function renderGame(g) {
     stage.append(el('p', '', `Round ${g.round || 1} · First to 2 points wins the match`));
 
     if (g.lastRound) {
-      const emojiMap = { rock: '✊', paper: '✋', scissors: '✌️' };
+      const emojiMap = { rock: '◇', paper: '▱', scissors: '✂' };
       const mine = g.lastRound.choices?.[cid];
       const other = g.lastRound.choices?.[peerId];
       const outcome =
@@ -1674,9 +1666,9 @@ function renderGame(g) {
 
     const choices = el('div', 'rps-choices');
     [
-      ['rock', '✊', 'Rock'],
-      ['paper', '✋', 'Paper'],
-      ['scissors', '✌️', 'Scissors']
+      ['rock', '◇', 'Rock'],
+      ['paper', '▱', 'Paper'],
+      ['scissors', '✂', 'Scissors']
     ].forEach(([val, emo, label]) => {
       const b = el('button', myLocked === val ? 'selected-choice' : '', emo);
       b.type = 'button';
@@ -1693,7 +1685,7 @@ function renderGame(g) {
 
     if (g.matchWinner) {
       stage.append(
-        el('div', 'game-prompt', g.matchWinner === cid ? '🏆 You won the match!' : `🏆 ${peerLabel} won the match!`)
+        el('div', 'game-prompt', g.matchWinner === cid ? '☆ You won the match!' : `☆ ${peerLabel} won the match!`)
       );
     } else if (myLocked) {
       stage.append(el('div', 'game-wait', `Choice locked in — waiting for ${peerLabel}…`));
@@ -1746,20 +1738,7 @@ function renderGame(g) {
 
 /* ---------- Notification Sound ---------- */
 let audio;
-function beep(freq = 880) {
-  try {
-    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
-    const o = audio.createOscillator();
-    const g = audio.createGain();
-    o.frequency.value = freq;
-    g.gain.setValueAtTime(0.07, audio.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.22);
-    o.connect(g);
-    g.connect(audio.destination);
-    o.start();
-    o.stop(audio.currentTime + 0.22);
-  } catch (e) {}
-}
+function beep() {}
 
 /* ---------- Authentication, Quick Rooms & Avatar Gallery ---------- */
 let authMode = 'login'; // 'login' | 'register' | 'room'
@@ -1938,7 +1917,7 @@ socket.on('quick-room-peer-joined', ({ roomKey, peer }) => {
   if (!isQuickRoomMode || roomKey !== activeRoomKey) return;
   activePeer = peer;
   beep(880);
-  showToast(`🎉 ${peer.name} joined the room!`);
+  showToast(`✦ ${peer.name} joined the room!`);
   updatePeerMood(peer.mood || '');
   updateChatHeader();
   triggerPresenceConfetti(peer.name);
@@ -2087,85 +2066,14 @@ setAuthMode('login');
    ========================================================================== */
 
 /* ---------- Feature 24: Subtle Typing & Send Sound Effects + Haptics ---------- */
-let soundFxEnabled = localStorage.getItem('duochat_sound_fx') !== '0';
-let lastKeyTickTime = 0;
-
-function updateSoundToggleUI() {
-  if ($('soundToggleLabel')) {
-    $('soundToggleLabel').textContent = `Key & Send Sound: ${soundFxEnabled ? 'ON' : 'OFF'}`;
-  }
-}
-updateSoundToggleUI();
-
-if ($('soundToggleBtn')) {
-  $('soundToggleBtn').onclick = (e) => {
-    e.stopPropagation();
-    soundFxEnabled = !soundFxEnabled;
-    localStorage.setItem('duochat_sound_fx', soundFxEnabled ? '1' : '0');
-    updateSoundToggleUI();
-    showToast(soundFxEnabled ? '🔊 Typing & send sounds enabled' : '🔇 Typing & send sounds muted');
-  };
-}
-
-function playKeyTick() {
-  if (!soundFxEnabled) return;
-  const now = Date.now();
-  if (now - lastKeyTickTime < 45) return;
-  lastKeyTickTime = now;
-  try {
-    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
-    const o = audio.createOscillator();
-    const g = audio.createGain();
-    o.type = 'triangle';
-    o.frequency.value = 520 + Math.random() * 140;
-    g.gain.setValueAtTime(0.018, audio.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.0008, audio.currentTime + 0.035);
-    o.connect(g);
-    g.connect(audio.destination);
-    o.start();
-    o.stop(audio.currentTime + 0.035);
-  } catch (e) {}
-}
-
-function playSendSound() {
-  if (!soundFxEnabled) return;
-  try {
-    if (navigator.vibrate) navigator.vibrate(15);
-    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
-    const o = audio.createOscillator();
-    const g = audio.createGain();
-    o.type = 'sine';
-    o.frequency.setValueAtTime(540, audio.currentTime);
-    o.frequency.exponentialRampToValueAtTime(860, audio.currentTime + 0.11);
-    g.gain.setValueAtTime(0.055, audio.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.12);
-    o.connect(g);
-    g.connect(audio.destination);
-    o.start();
-    o.stop(audio.currentTime + 0.12);
-  } catch (e) {}
-}
+function playKeyTick() {}
+function playSendSound() {}
 
 /* ---------- Feature 3: Live Heartbeat Tap (Long-Press Screen or Header Heart) ---------- */
 function playHeartbeatPulse(senderName, isOutgoing = false) {
   if (navigator.vibrate) {
     navigator.vibrate([90, 70, 140]);
   }
-  try {
-    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
-    [0, 0.16].forEach((offset, idx) => {
-      const o = audio.createOscillator();
-      const g = audio.createGain();
-      o.type = 'sine';
-      o.frequency.value = idx === 0 ? 115 : 95;
-      g.gain.setValueAtTime(0.14, audio.currentTime + offset);
-      g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + offset + 0.14);
-      o.connect(g);
-      g.connect(audio.destination);
-      o.start(audio.currentTime + offset);
-      o.stop(audio.currentTime + offset + 0.14);
-    });
-  } catch (e) {}
 
   const ov = $('heartbeatOverlay');
   if (ov) {
@@ -2178,9 +2086,9 @@ function playHeartbeatPulse(senderName, isOutgoing = false) {
   }
 
   if (isOutgoing) {
-    showToast(`💓 Heartbeat pulse sent to ${senderName}`);
+    showToast(`Heartbeat pulse sent to ${senderName}`);
   } else {
-    showToast(`💓 ${senderName} sent a Live Heartbeat pulse!`);
+    showToast(`${senderName} sent a Live Heartbeat pulse!`);
   }
 }
 
@@ -2259,7 +2167,7 @@ socket.on('screenshot-alert', ({ roomKey, byId, byName }) => {
   scrollDown();
   if (byId !== cid) {
     beep(960);
-    showToast(`📸 ${label}`);
+    showToast(`▧ ${label}`);
   }
 });
 
@@ -2269,7 +2177,7 @@ function triggerReactionBlast(emoji) {
   if (!overlay || !emoji) return;
   const burstMap = {
     '❤️': ['❤️', '💖', '💕', '💗', '💓'],
-    '🔥': ['🔥', '✨', '💥', '⚡'],
+    '😡': ['😡', '😠', '💢'],
     '😂': ['😂', '🤣', '😆', '✨'],
     '🤲': ['🤲', '✨', '🌙', '💫'],
     '😮': ['😮', '✨', '🌟', '💫'],
@@ -2514,7 +2422,7 @@ function buildInteractiveWidget(m) {
         if (!activePeer) return;
         socket.emit('widget-interact', { peerId: activePeer.id, id: m.id, action: 'answer', value: idx }, (res) => {
           if (res?.error) showToast(res.error);
-          else showToast(idx === w.answerIdx ? '🎉 Correct answer!' : '😅 Nice try!');
+          else showToast(idx === w.answerIdx ? '✦ Correct answer!' : '😅 Nice try!');
         });
       };
       box.append(btn);

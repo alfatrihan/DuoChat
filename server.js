@@ -499,7 +499,7 @@ io.on('connection', (socket) => {
       }
     }
 
-    const validMorphs = ['normal', 'chipmunk', 'deep', 'robot', 'radio'];
+    const validMorphs = ['normal', 'chipmunk', 'deep', 'robot', 'radio', 'female', 'old', 'baby'];
     const clean = {
       id: clip(m.id, 40),
       roomKey: ctx.roomKey,

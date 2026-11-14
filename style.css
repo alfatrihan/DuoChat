@@ -2134,3 +2134,27 @@ footer textarea:focus { border-color: var(--accent); }
     transform: translateY(105vh) translateX(var(--drift, 40px)) rotate(540deg);
   }
 }
+
+/* Compact touch layout; retain existing theme tokens. */
+.popover-menu button svg,.mode-pill svg { flex-shrink:0; vertical-align:middle; }
+@media(max-width:768px){
+ html,body{width:100%;overflow-x:hidden;}
+ .messenger-shell{height:100dvh;max-height:100dvh;min-width:0;}
+ .chat-pane,#activeChatView{min-width:0;}
+ header{gap:6px;padding:10px 8px;}
+ .who{min-width:0;flex:1;}
+ .name-row{min-width:0;flex-wrap:wrap;}
+ #peerName{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+ .header-actions{gap:0;}
+ .header-actions .icon-btn{width:34px;height:38px;padding:7px;}
+ .duo-person{min-width:0;}.duo-person b{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+ footer{flex-wrap:wrap;gap:4px;padding:8px 6px;padding-bottom:max(8px,env(safe-area-inset-bottom));}
+ footer textarea{min-width:100px;flex:1;}
+ .voice-rec-bar{gap:6px;flex-wrap:wrap;padding:8px;}
+ .voice-rec-status{min-width:0;flex:1;gap:6px;}
+ .voice-morph-select{max-width:110px;min-width:0;}
+ .voice-rec-actions{flex-shrink:0;}
+ .popover-menu{max-width:calc(100vw - 24px);}
+ .modal-card{max-height:calc(100dvh - 32px);overflow-y:auto;}
+ .voice-bubble{max-width:100%;min-width:0;}
+}
