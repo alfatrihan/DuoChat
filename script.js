@@ -1,4 +1,4 @@
-// script.js - DuoChat v3 (Synced Weather Atmosphere, Vanish Messages, Spoiler Blur, Reactions, Moods, Nudge)
+// script.js - DuoChat v5 (Multi-Inbox Messenger, Friend Requests, Islamic & Modest Flat Vector Avatars, Real-time Mini-Games)
 const $ = (id) => document.getElementById(id);
 const socket = io();
 
@@ -7,102 +7,195 @@ let cid = '';
 let accountToken = sessionStorage.getItem('accountToken') || '';
 let currentAccount = null;
 
-// Original lightweight SVG artwork; no external avatar service or image download.
-const AVATAR_NAMES = {
-  female: ['Pearl Elegance','City Scholar','Rose Drape','Sporty Minimal','Royal Pleats','Soft Classic','Modern Wrap','Midnight Luxe'],
-  male: ['Classic Gentleman','Urban Scholar','Curly Creative','Clean Minimal','Wavy Modern','Sharp Professional','Relaxed Youth','Distinguished']
-};
-function avatarArt(gender, variant = 0) {
-  if (!gender) return '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="50" fill="#25314c"/><circle cx="50" cy="38" r="15" fill="#a8b6cf"/><path d="M20 100V78a30 30 0 0 1 60 0v22" fill="#a8b6cf"/></svg>';
-  const n = Math.max(0, Math.min(7, Number(variant) || 0));
-  const female = gender === 'female';
-  const skin = ['#d4a17e','#ab7456','#e5b69a','#bf8a69','#b97e5e','#e3ae8c','#cf9676','#936448'][n];
-  const cloth = ['#7e8daa','#37635d','#ad6f86','#4c566e','#6e5184','#a28c6f','#477b91','#363c50'][n];
-  const ink = '#302b35';
-  const line = d => `<path d="${d}" fill="none" stroke="${ink}" stroke-width="1.7" stroke-linecap="round"/>`;
-  const shoulders = `<path d="M8 100V91q5-20 32-23h20q27 3 32 23v9" fill="${female ? '#28334b' : cloth}"/>`;
-  const faces = [
-    'M34 32Q50 22 66 32v16q-2 17-16 20-14-3-16-20Z',
-    'M33 32Q50 23 67 32v18q-3 15-17 17-14-2-17-17Z',
-    'M32 35q18-18 36 0v13q-2 19-18 21-16-2-18-21Z',
-    'M35 29q15-8 30 0v22q-3 16-15 17-12-1-15-17Z',
-    'M33 33q17-15 34 0v15q-1 14-17 22-16-8-17-22Z',
-    'M32 34q18-13 36 0v15q-4 18-18 19-14-1-18-19Z',
-    'M35 31q15-12 30 0v20q-1 14-15 19-14-5-15-19Z',
-    'M32 32q18-12 36 0v19q-4 14-18 16-14-2-18-16Z'
-  ];
-  let face = `<path d="${faces[n]}" fill="${skin}"/>`;
-  face += line(n%2 ? 'M39 40q4-3 8-1m7 0q4-2 8 1' : 'M39 38q4-2 8 0m7 0q4-2 8 0');
-  face += line(n===2 || n===5 ? 'M40 46q3 3 6 0m9 0q3 3 6 0' : 'M41 45h3m12 0h3');
-  face += `<path d="M50 46l-2 7h4" fill="none" stroke="#9b6755" stroke-width="1" stroke-linecap="round"/>`;
-  face += line(n===3 ? 'M46 59h8' : n===2 || n===5 ? 'M43 57q7 9 14 0Z' : 'M45 58q5 4 10 0');
-  const glasses = `<g fill="none" stroke="#d5bf94" stroke-width="2"><rect x="36" y="41" width="13" height="10" rx="4"/><rect x="53" y="41" width="13" height="10" rx="4"/><path d="M49 45h4m-17-1h-4m34 0h3"/></g>`;
-  let art = shoulders;
-  if (female) {
-    const backs = [
-      'M20 100V35Q20 8 50 8t30 27v65Z',
-      'M22 100V31Q25 10 50 10t28 25l6 65Z',
-      'M16 100l8-68Q27 8 51 9q28 1 27 31l9 60Z',
-      'M25 100V33Q25 12 50 12t25 21v67Z',
-      'M17 100l5-69Q24 7 50 7t28 24l5 69Z',
-      'M19 100V34Q20 12 50 10q29 0 30 24v66Z',
-      'M17 100l7-67Q26 10 51 10q26 0 26 25l8 65Z',
-      'M19 100V32Q21 6 50 6t31 26v68Z'
-    ];
-    const wraps = [
-      'M22 34Q24 10 50 10q25 0 28 24L63 28Q45 29 35 25L30 42v17q5 12 20 19 15-8 21-19l9 41H20l8-40Z',
-      'M24 33Q27 12 50 12q23 0 27 22L65 30q-16 0-30-4l-7 15v18q7 14 22 19l24-17 10 39H22l7-39Z',
-      'M24 32Q29 9 51 11q25 0 26 24L63 30 48 22 34 31l-6 14 1 15q8 17 31 26L34 100H16l13-40Z',
-      'M26 34Q27 13 50 13t24 21L62 29H38l-8 13v17q5 12 20 18 15-6 20-18l5 41H25l5-41Z',
-      'M23 32Q26 9 50 9t26 23L63 27 48 20 35 27l-7 16v16q8 15 22 21l24-18 9 38H17l11-41Z',
-      'M21 36Q23 12 50 12t28 24L65 29q-15 5-28-3l-9 16v18q6 13 22 18l23-16 7 38H19l9-40Z',
-      'M25 32Q28 11 51 12q23 0 25 23L65 29 41 24l-11 9-2 24q8 14 23 19l24-17 10 41H17l11-43Z',
-      'M21 33Q24 8 50 8t29 25L64 26 50 21 35 26l-8 16v17q7 15 23 21l25-19 6 39H19l8-41Z'
-    ];
-    art += `<path d="${backs[n]}" fill="${cloth}"/>` + face + `<path d="${wraps[n]}" fill="${cloth}"/>`;
-    const folds = [ 'M29 58q6 15 21 20l20-14M50 78l15 22', 'M29 59q7 15 21 19l23-16M29 68l6 32', 'M29 59q10 17 31 27L34 100M32 67l28 19', 'M30 59q5 12 20 18 15-6 20-18M43 78v22', 'M28 59q8 15 22 21l24-18M30 24l18-9 23 14M33 27l15-8 20 12', 'M28 60q6 13 22 18l23-16M50 78l-9 22', 'M28 57q8 14 23 19l24-17M51 76q13 6 26 3M62 82l-6 18', 'M27 59q7 15 23 21l25-19M30 26l20-11 22 14M50 80l20 20' ];
-    art += `<path d="${folds[n]}" fill="none" stroke="#ffffff" opacity=".25" stroke-width="2" stroke-linecap="round"/>`;
-    if(n===1) art += glasses;
-    if(n===0) art += '<g fill="#f1e6ce"><circle cx="67" cy="71" r="3"/><circle cx="67" cy="71" r="1" fill="#fff"/></g>';
-    if(n===2) art += '<path d="M68 72q-7-8-10 0 4 6 10 0 6-5 9 0-3 7-9 0" fill="#e8a5b9"/><circle cx="68" cy="72" r="2" fill="#f6e3ae"/>';
-    if(n===4 || n===7) art += '<path d="m68 69 4 5-4 5-4-5Z" fill="#ddbd7f"/><path d="M28 88q22 10 44 0" stroke="#ddbd7f" fill="none" stroke-width="1.5"/>';
-    if(n===6) art += '<path d="M29 86h11v8H29Z" fill="#cfbc88"/>';
-  } else {
-    art += `<path d="M42 60v12l8 8 8-8V60" fill="${skin}"/>` + face;
-    const hair = [
-      'M32 41q-7-25 10-30 13-8 28 2l5-5q1 15-10 21l-2 10-2-12q-14 6-25-2l-1 17Z',
-      'M31 41V24q2-15 20-15 20 0 20 18v14l-6-13-29-1Z',
-      'M31 42l-4-16 6-6-1-7 10-1 6-6 8 4 10-2 3 7 7 5-6 22-5-15-29 2Z',
-      'M33 39V25q3-12 17-12t18 12v14l-5-12H38Z',
-      'M30 43q-8-25 9-31 15-12 31 2 11 8-1 30l-4-14q-18 4-25-8l-5 20Z',
-      'M31 40V25q-1-17 20-17 22 0 20 21l-4 12-3-15q-13 2-23-4l-5 18Z',
-      'M31 43l-4-20q5-15 24-14l20 9-2 23-5-16-5 8-9-10-12 8-3 12Z',
-      'M31 42V26q2-17 19-17t21 17v16l-7-14H37Z'
-    ];
-    art += `<path d="${hair[n]}" fill="${n===7 ? '#66636b' : '#302b35'}"/>`;
-    if([0,1,4,5,7].includes(n)) art += `<path d="${n===7 ? 'M34 48q4 18 16 23 13-5 17-23l-8 9-9 4-9-4Z' : n===1 ? 'M35 53q3 15 15 16 12-1 16-16l-10 9H44Z' : 'M35 51q4 16 15 17 12-1 16-17l-8 9-8 3-8-3Z'}" fill="${n===7 ? '#77727a' : '#49362f'}"/>`;
-    art += line('M40 70l10 9 10-9M50 79v21');
-    if(n===1 || n===5) art += glasses;
-    if(n===2) art += '<path d="M37 73l-7 27m33-27 7 27" stroke="#c8af8e" stroke-width="2"/>';
-    if(n===4) art += '<path d="M36 73l-8 25h44L64 73" fill="none" stroke="#c1b1a1" stroke-width="2"/>';
-    if(n===7) art += '<path d="M40 72l10 7 10-7M31 84v10h10" fill="none" stroke="#e1c792" stroke-width="2"/>';
-    art += '<circle cx="54" cy="85" r="1.3" fill="#d3bd92"/><circle cx="54" cy="92" r="1.3" fill="#d3bd92"/>';
-  }
-  return `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="50" fill="${['#273551','#24413f','#443247','#2d3645','#3f3052','#433a32','#233e50','#262b3d'][n]}"/><circle cx="80" cy="20" r="31" fill="#ffffff" opacity=".06"/>${art}</svg>`;
-}
-document.querySelectorAll('[data-avatar]').forEach(node => node.innerHTML = avatarArt(node.dataset.avatar));
-let peerGender = null;
-let peerAvatar = 0;
-let creds = null;
-let peerName = '';
-let peerOnline = false, peerTyping = false;
+let inboxData = { friends: [], incoming: [], outgoing: [] };
+let activePeer = null;   // { id, username, name, gender, avatar, online, mood }
+let activeRoomKey = '';
 let replyTo = null;
 let vanishMode = false;
 let spoilerMode = false;
 let myMood = '';
 let currentWeather = 'clear';
+let activeGame = null;
+let gameState = null;
+
 const items = {}; // id -> { m, el, tick, seenSent, vanishTimer }
 
+/* ---------- Minimalist Flat Vector Avatars (Islamic & Modest + Modern Casual) ---------- */
+const AVATAR_NAMES = {
+  female: [
+    'Olive Hijab',
+    'Dusty Rose',
+    'Teal Drape',
+    'Classic Black',
+    'Navy Modest',
+    'Niqab Pearl',
+    'Hijab & Shades',
+    'Modern Wrap'
+  ],
+  male: [
+    'White Kufi',
+    'Classic Thobe',
+    'Smart Blazer',
+    'Red Ghutra',
+    'Olive Panjabi',
+    'White Keffiyeh',
+    'Modern Casual',
+    'Turban Wrap'
+  ]
+};
+
+function avatarArt(gender, variant = 0) {
+  if (!gender) {
+    return `<svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="50" fill="#e2e8f0"/>
+      <circle cx="50" cy="39" r="15" fill="#94a3b8"/>
+      <path d="M22 100V80a28 28 0 0 1 56 0v20" fill="#94a3b8"/>
+    </svg>`;
+  }
+
+  const n = Math.max(0, Math.min(7, Number(variant) || 0));
+  const female = gender === 'female';
+
+  if (female) {
+    // Soft pastel circular backgrounds
+    const bg = ['#e7efe8', '#f6e6ea', '#e1f0ef', '#e9ebf0', '#e4e8f3', '#efeae4', '#f4ece1', '#ebe6f3'][n];
+    // Hijab / Abaya flat vector tones
+    const hijabMain = ['#5f7863', '#c88294', '#3d7d7a', '#242730', '#2d3f63', '#23262e', '#9c7858', '#6b5a82'][n];
+    const hijabShadow = ['#4c6250', '#b06b7d', '#2e6360', '#181a20', '#202e4a', '#16181e', '#826144', '#554669'][n];
+    const abaya = ['#3a4a3d', '#8c5363', '#275452', '#171920', '#1e2b45', '#15171d', '#5c4738', '#463a57'][n];
+    const skin = ['#e8be9e', '#dfb08c', '#ecc5a7', '#d8a47f', '#e5ba98', '#dfb08c', '#e9c1a2', '#dca984'][n];
+
+    // Variant 7: Casual modern modest wrap / bob silhouette
+    if (n === 7) {
+      return `<svg viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="50" fill="${bg}"/>
+        <path d="M24 96C24 76 34 68 50 68s26 8 26 28Z" fill="${abaya}"/>
+        <path d="M31 38c0-14 8-22 19-22s19 8 19 22v22c0 6-4 10-9 10H40c-5 0-9-4-9-10Z" fill="#3a303c"/>
+        <rect x="45" y="54" width="10" height="15" rx="5" fill="${skin}"/>
+        <rect x="37" y="29" width="26" height="31" rx="13" fill="${skin}"/>
+        <path d="M34 36c4-9 14-12 29-7-2-8-9-12-16-12-9 0-14 7-13 19Z" fill="#3a303c"/>
+        <path d="M36 69l14 10 14-10" fill="none" stroke="${hijabMain}" stroke-width="4" stroke-linecap="round"/>
+      </svg>`;
+    }
+
+    // Hijab outer & layered abaya shapes
+    let svg = `<svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="50" fill="${bg}"/>
+      <!-- Modest Abaya Shoulders -->
+      <path d="M18 100C19 77 32 69 50 69s31 8 32 31Z" fill="${abaya}"/>
+      <!-- Outer Hijab Silhouette -->
+      <path d="M26 46c0-17 10-29 24-29s24 12 24 29c0 17-6 31-24 35-18-4-24-18-24-35Z" fill="${hijabMain}"/>
+      <!-- Layered Hijab Drape Fold -->
+      <path d="M28 58c6 12 18 19 36 17-6 8-15 12-23 12-10 0-16-9-13-29Z" fill="${hijabShadow}"/>
+      <!-- Clean Faceless Geometric Head -->
+      <rect x="37" y="27" width="26" height="33" rx="13" fill="${skin}"/>
+      <!-- Inner Hijab Cap Frame -->
+      <path d="M37 38c0-8 6-13 13-13s13 5 13 13c-3-4-8-6-13-6s-10 2-13 6Z" fill="${hijabShadow}"/>`;
+
+    // Variant 5: Niqab option (clean flat geometric veil across lower face)
+    if (n === 5) {
+      svg += `<path d="M37 42h26v6c0 7-6 12-13 12s-13-5-13-12Z" fill="${hijabMain}"/>
+              <path d="M37 42h26" stroke="${hijabShadow}" stroke-width="1.8"/>`;
+    }
+
+    // Variant 6: Hijab with minimalist geometric sunglasses
+    if (n === 6) {
+      svg += `<g fill="#1e2028">
+                <rect x="38" y="38" width="10.5" height="6.5" rx="2.5"/>
+                <rect x="51.5" y="38" width="10.5" height="6.5" rx="2.5"/>
+                <rect x="48" y="39.5" width="4" height="1.8"/>
+              </g>`;
+    }
+
+    // Minimalist lapel / modest V-drape accent
+    svg += `<path d="M40 72l10 11 10-11" fill="none" stroke="${hijabMain}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+    return svg;
+  } else {
+    // Male Avatars: Soft pastel backgrounds
+    const bg = ['#e4ecf2', '#e8efe9', '#e6e8f2', '#f3eae6', '#e9efe6', '#e5edf0', '#f0ece4', '#e8e6f2'][n];
+    const skin = ['#e5b896', '#d9a47e', '#ecc2a1', '#d49d76', '#e2b38f', '#dba782', '#e7bc9b', '#d7a17b'][n];
+    const beard = ['#2c2528', '#332a2c', '#262124', '#382e30', '#2b2426', '#2f2729', '#3b3134', '#2a2326'][n];
+
+    // Variant 6: Casual modern clean beard & crewneck
+    if (n === 6) {
+      return `<svg viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="50" fill="${bg}"/>
+        <path d="M20 100c2-21 14-29 30-29s28 8 30 29Z" fill="#49647a"/>
+        <rect x="44" y="55" width="12" height="17" rx="6" fill="${skin}"/>
+        <rect x="36" y="25" width="28" height="35" rx="14" fill="${skin}"/>
+        <path d="M36 35c0-10 6-15 14-15s14 5 14 15c-2-5-7-7-14-7s-12 2-14 7Z" fill="${beard}"/>
+        <path d="M36 44c0 10 6 16 14 16s14-6 14-16c-3 5-8 7-14 7s-11-2-14-7Z" fill="${beard}"/>
+        <path d="M42 71q8 6 16 0" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+      </svg>`;
+    }
+
+    // Variant 7: Modest Turban / Headwrap & Beard
+    if (n === 7) {
+      return `<svg viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="50" fill="${bg}"/>
+        <path d="M20 100c2-21 14-29 30-29s28 8 30 29Z" fill="#3c3752"/>
+        <rect x="44" y="55" width="12" height="17" rx="6" fill="${skin}"/>
+        <rect x="36" y="26" width="28" height="34" rx="14" fill="${skin}"/>
+        <path d="M36 44c0 10 6 16 14 16s14-6 14-16c-3 5-8 7-14 7s-11-2-14-7Z" fill="${beard}"/>
+        <path d="M32 32c0-12 8-19 18-19s18 7 18 19c-6-4-12-5-18-5s-12 1-18 5Z" fill="#685a8a"/>
+        <path d="M33 27l34 5M33 32l34-5" stroke="#534670" stroke-width="2.2" stroke-linecap="round"/>
+      </svg>`;
+    }
+
+    // Variants 3 & 5: Keffiyeh / Ghutra styles
+    if (n === 3 || n === 5) {
+      const cloth = n === 3 ? '#ffffff' : '#f7f8fa';
+      const pattern = n === 3 ? '#c84b55' : '#4a5568';
+      const robe = n === 3 ? '#2c3545' : '#f1f5f9';
+      return `<svg viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="50" fill="${bg}"/>
+        <path d="M18 100c2-22 14-30 32-30s30 8 32 30Z" fill="${robe}"/>
+        <!-- Ghutra / Keffiyeh Drape -->
+        <path d="M28 40c0-15 9-24 22-24s22 9 22 24l4 42H24Z" fill="${cloth}"/>
+        <path d="M29 32h42M28 38h44" stroke="${pattern}" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.65"/>
+        <rect x="37" y="28" width="26" height="32" rx="13" fill="${skin}"/>
+        <path d="M37 45c0 9 6 15 13 15s13-6 13-15c-3 4-7 6-13 6s-10-2-13-6Z" fill="${beard}"/>
+        <!-- Black Agal Cord -->
+        <rect x="33" y="22" width="34" height="4.5" rx="2.2" fill="#1e2028"/>
+      </svg>`;
+    }
+
+    // Variants 0, 1, 2, 4: White Kufi / Prayer Cap + Thobe / Panjabi / Smart Blazer
+    const outfit = ['#ffffff', '#4a6b5d', '#2b364d', '', '#5c7260'][n];
+    const collarAccent = ['#cbd5e1', '#d4af37', '#ffffff', '', '#dce6dd'][n];
+    const capColor = n === 2 ? '#2b364d' : '#ffffff';
+    const capBorder = n === 2 ? '#1e2638' : '#cbd5e1';
+
+    let svg = `<svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="50" fill="${bg}"/>
+      <!-- Thobe / Panjabi / Blazer Shoulders -->
+      <path d="M19 100c2-21 14-29 31-29s29 8 31 29Z" fill="${outfit}"/>
+      <rect x="44" y="55" width="12" height="17" rx="6" fill="${skin}"/>
+      <!-- Faceless Portrait Head -->
+      <rect x="36" y="26" width="28" height="34" rx="14" fill="${skin}"/>
+      <!-- Neat Beard -->
+      <path d="M36 44c0 10 6 16 14 16s14-6 14-16c-3 5-8 7-14 7s-11-2-14-7Z" fill="${beard}"/>
+      <!-- Kufi / Prayer Cap -->
+      <path d="M36 31c0-9 6-14 14-14s14 5 14 14Z" fill="${capColor}"/>
+      <line x1="36" y1="31" x2="64" y2="31" stroke="${capBorder}" stroke-width="2"/>`;
+
+    if (n === 2) {
+      // Smart Blazer Lapels + Crisp Shirt
+      svg += `<path d="M43 71l7 14 7-14Z" fill="#ffffff"/>
+              <path d="M39 71l11 19 11-19" fill="none" stroke="#1b2333" stroke-width="3" stroke-linejoin="round"/>`;
+    } else {
+      // Panjabi / Thobe Mandarin Collar & Placket
+      svg += `<line x1="50" y1="71" x2="50" y2="91" stroke="${collarAccent}" stroke-width="2.5" stroke-linecap="round"/>
+              <path d="M43 71q7 5 14 0" fill="none" stroke="${collarAccent}" stroke-width="2.5" stroke-linecap="round"/>`;
+    }
+
+    svg += `</svg>`;
+    return svg;
+  }
+}
+
+/* ---------- Utility Helpers ---------- */
 const el = (tag, cls, text) => {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -116,50 +209,53 @@ function showToast(msg) {
   t.textContent = msg;
   t.classList.remove('hidden');
   clearTimeout(t._timer);
-  t._timer = setTimeout(() => t.classList.add('hidden'), 2800);
+  t._timer = setTimeout(() => t.classList.add('hidden'), 3000);
 }
 
-/* ---------- Auto-fill Room from URL Invite Link ---------- */
-const urlParams = new URLSearchParams(window.location.search);
-if (urlParams.get('room')) {
-  $('room').value = urlParams.get('room');
-}
-
-$('genRoomBtn').onclick = () => {
-  const randomKey = 'duo-' + Math.random().toString(36).substring(2, 8);
-  $('room').value = randomKey;
-  $('room').type = 'text';
-  showToast('Generated random passkey!');
-};
-
-/* ---------- Light / Dark Base Theme ---------- */
+/* ---------- Theme System ---------- */
 function setTheme(t) {
   document.documentElement.dataset.theme = t;
   try { localStorage.setItem('theme', t); } catch (e) {}
 }
-let saved = null;
-try { saved = localStorage.getItem('theme'); } catch (e) {}
-setTheme(saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'midnight' : 'light'));
+let savedTheme = null;
+try { savedTheme = localStorage.getItem('theme'); } catch (e) {}
+setTheme(savedTheme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'midnight' : 'light'));
+
 $('themeBtn').onclick = () => {
   const current = document.documentElement.dataset.theme;
-  setTheme(['light','sakura'].includes(current) ? 'midnight' : 'light');
-  showToast('Theme updated');
+  setTheme(['light', 'sakura'].includes(current) ? 'midnight' : 'light');
+  showToast('Theme switched');
 };
+
 function openModal(id) { $(id).classList.remove('hidden'); }
 function closeModal(id) { $(id).classList.add('hidden'); }
+
 $('themePresetsBtn').onclick = () => { closeAllMenus(); openModal('themesModal'); };
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')); closeAllMenus(); } });
-document.querySelectorAll('[data-close]').forEach((b) => b.onclick = () => closeModal(b.dataset.close));
-document.querySelectorAll('.modal').forEach((m) => m.addEventListener('click', (e) => { if (e.target === m) m.classList.add('hidden'); }));
-document.querySelectorAll('[data-theme-choice]').forEach((b) => b.onclick = () => {
-  setTheme(b.dataset.themeChoice);
-  closeModal('themesModal');
-  showToast(`${b.querySelector('b').textContent} theme applied ✦`);
+$('sidebarThemeBtn').onclick = () => { closeAllMenus(); openModal('themesModal'); };
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal').forEach((m) => m.classList.add('hidden'));
+    closeAllMenus();
+  }
+});
+document.querySelectorAll('[data-close]').forEach((b) => (b.onclick = () => closeModal(b.dataset.close)));
+document.querySelectorAll('.modal').forEach((m) =>
+  m.addEventListener('click', (e) => {
+    if (e.target === m) m.classList.add('hidden');
+  })
+);
+document.querySelectorAll('[data-theme-choice]').forEach((b) => {
+  b.onclick = () => {
+    setTheme(b.dataset.themeChoice);
+    closeModal('themesModal');
+    showToast(`${b.querySelector('b').textContent} theme applied ✦`);
+  };
 });
 
 /* ---------- Synced Weather Atmosphere Engine ---------- */
 const WEATHER_META = {
-  clear:  { icon: '🌤️', svg: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>', label: 'Clear Sky' },
+  clear:  { icon: '☀️', svg: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>', label: 'Clear Sky' },
   rain:   { icon: '🌧️', svg: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M16 14v6"/><path d="M8 14v6"/><path d="M12 16v6"/></svg>', label: 'Cozy Rain' },
   storm:  { icon: '⛈️', svg: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.326A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 .5 8.973"/><path d="m13 12-3 5h4l-3 5"/></svg>', label: 'Thunder Storm' },
   snow:   { icon: '❄️', svg: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/><path d="m20 16-4-4 4-4"/><path d="m4 8 4 4-4 4"/><path d="m16 4-4 4-4-4"/><path d="m8 20 4-4 4 4"/></svg>', label: 'Soft Snow' },
@@ -174,16 +270,16 @@ let animFrame = null;
 let lightningTimer = null;
 
 function resizeCanvas() {
-  const chatEl = $('chat');
-  canvas.width = chatEl.clientWidth || window.innerWidth;
-  canvas.height = chatEl.clientHeight || window.innerHeight;
+  const pane = $('activeChatView');
+  canvas.width = pane.clientWidth || window.innerWidth;
+  canvas.height = pane.clientHeight || window.innerHeight;
 }
 window.addEventListener('resize', resizeCanvas);
 
 function initParticles(type) {
   resizeCanvas();
   particles = [];
-  const count = type === 'rain' ? 95 : type === 'storm' ? 145 : type === 'snow' ? 75 : type === 'stars' ? 65 : type === 'petals' ? 35 : 0;
+  const count = type === 'rain' ? 95 : type === 'storm' ? 140 : type === 'snow' ? 75 : type === 'stars' ? 65 : type === 'petals' ? 35 : 0;
   for (let i = 0; i < count; i++) {
     particles.push({
       x: Math.random() * canvas.width,
@@ -251,7 +347,6 @@ function drawWeather() {
 function applyWeather(weather, announceBy) {
   if (!WEATHER_META[weather]) weather = 'clear';
   currentWeather = weather;
-  document.documentElement.dataset.weather = weather;
   $('weatherIcon').innerHTML = WEATHER_META[weather].svg;
 
   $('weatherMenu').querySelectorAll('button').forEach((b) => {
@@ -271,7 +366,7 @@ function applyWeather(weather, announceBy) {
   if (weather === 'storm') {
     lightningTimer = setInterval(() => {
       if (Math.random() > 0.45) {
-        const c = $('chat');
+        const c = $('activeChatView');
         c.classList.remove('lightning-flash');
         void c.offsetWidth;
         c.classList.add('lightning-flash');
@@ -284,13 +379,18 @@ function applyWeather(weather, announceBy) {
   }
 }
 
-/* ---------- Dropdown Menu Handlers ---------- */
+/* ---------- Dropdown Menus ---------- */
 function closeAllMenus() {
   $('weatherMenu').classList.add('hidden');
   $('moodMenu').classList.add('hidden');
   $('moreMenu').classList.add('hidden');
 }
-document.addEventListener('click', (e) => { closeAllMenus(); if (!e.target.closest('.message-actions') && !e.target.closest('.message-menu-btn')) document.querySelectorAll('.message-actions').forEach(x => x.classList.add('hidden')); });
+document.addEventListener('click', (e) => {
+  closeAllMenus();
+  if (!e.target.closest('.message-actions') && !e.target.closest('.message-menu-btn')) {
+    document.querySelectorAll('.message-actions').forEach((x) => x.classList.add('hidden'));
+  }
+});
 
 $('weatherBtn').onclick = (e) => {
   e.stopPropagation();
@@ -300,9 +400,10 @@ $('weatherBtn').onclick = (e) => {
 };
 $('weatherMenu').querySelectorAll('button').forEach((btn) => {
   btn.onclick = () => {
+    if (!activePeer) return;
     const w = btn.dataset.weather;
     applyWeather(w, 'You');
-    socket.emit('weather', w);
+    socket.emit('weather', { peerId: activePeer.id, weather: w });
   };
 });
 
@@ -312,11 +413,9 @@ $('moodBtn').onclick = (e) => {
   closeAllMenus();
   if (isHidden) $('moodMenu').classList.remove('hidden');
 };
-const DEFAULT_MOOD_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>';
 $('moodMenu').querySelectorAll('button').forEach((btn) => {
   btn.onclick = () => {
     myMood = btn.dataset.mood;
-    $('myMoodIcon').innerHTML = DEFAULT_MOOD_SVG;
     $('moodBtn').classList.toggle('active-symbol', !!myMood);
     socket.emit('mood', myMood);
     showToast(myMood ? `Mood set to ${myMood}` : 'Mood cleared');
@@ -330,71 +429,265 @@ $('moreBtn').onclick = (e) => {
   if (isHidden) $('moreMenu').classList.remove('hidden');
 };
 
-/* ---------- Join ---------- */
-function doJoin(onDone) {
-  socket.emit('join', { ...creds, mood: myMood }, (res) => {
-    if (res.error) {
-      if (res.error.includes('sign in')) { sessionStorage.removeItem('accountToken'); accountToken=''; currentAccount=null; creds=null; $('chat').classList.add('hidden'); $('join').classList.add('hidden'); $('auth').classList.remove('hidden'); $('authError').textContent=res.error; }
-      return onDone(res.error);
+/* ---------- Multi-Inbox Sidebar, Search & Friend Requests ---------- */
+function renderSidebar() {
+  // Pending Friend Requests
+  const incoming = inboxData.incoming || [];
+  $('requestsSection').classList.toggle('hidden', incoming.length === 0);
+  $('requestCountBadge').textContent = String(incoming.length);
+  $('requestsList').replaceChildren();
+
+  incoming.forEach((u) => {
+    const row = el('div', 'user-row');
+    const av = el('div', 'avatar sm');
+    av.innerHTML = avatarArt(u.gender, u.avatar);
+
+    const info = el('div', 'user-row-info');
+    const top = el('div', 'user-row-top');
+    top.append(el('b', '', u.name));
+    const sub = el('div', 'user-row-sub');
+    sub.append(el('span', '', `@${u.username}`));
+    info.append(top, sub);
+
+    const acts = el('div', 'row-actions');
+    const acceptBtn = el('button', 'mini-pill-btn solid', 'Accept');
+    acceptBtn.onclick = () => {
+      socket.emit('friend-accept', u.id, (res) => {
+        if (res.error) return showToast(res.error);
+        inboxData = res.inbox;
+        renderSidebar();
+        showToast(`You and ${u.name} are now friends!`);
+      });
+    };
+    const declineBtn = el('button', 'mini-pill-btn decline', 'Decline');
+    declineBtn.onclick = () => {
+      socket.emit('friend-decline', u.id, (res) => {
+        if (res.error) return showToast(res.error);
+        inboxData = res.inbox;
+        renderSidebar();
+        showToast('Request declined');
+      });
+    };
+    acts.append(acceptBtn, declineBtn);
+    row.append(av, info, acts);
+    $('requestsList').append(row);
+  });
+
+  // Accepted Friends Inbox
+  const friends = inboxData.friends || [];
+  $('friendCountLabel').textContent = String(friends.length);
+  $('inboxList').replaceChildren();
+
+  if (!friends.length) {
+    $('inboxList').append(
+      el('div', 'empty-list-hint', 'No conversations yet. Search a username above to send a friend request!')
+    );
+    return;
+  }
+
+  friends.forEach((f) => {
+    const row = el('button', 'user-row' + (activePeer && activePeer.id === f.id ? ' active' : ''));
+    row.type = 'button';
+
+    const avWrap = el('div', 'avatar-wrap');
+    const av = el('div', 'avatar sm');
+    av.innerHTML = avatarArt(f.gender, f.avatar);
+    const dot = el('span', 'online-dot' + (f.online ? ' on' : ''));
+    avWrap.append(av, dot);
+
+    const info = el('div', 'user-row-info');
+    const top = el('div', 'user-row-top');
+    top.append(el('b', '', f.name));
+    if (f.lastMessage) {
+      top.append(el('span', 'user-row-time', fmtTime(f.lastMessage.time)));
     }
-    Object.values(items).forEach(it => clearTimeout(it.vanishTimer));
-    $('msgs').innerHTML = '';
-    Object.keys(items).forEach((k) => delete items[k]);
-    const other = [...res.history].reverse().find((m) => m.from !== cid);
-    peerName = res.peer || (other && other.name) || '';
-    peerOnline = !!res.peer;
-    peerGender = res.peerGender || null;
-    peerAvatar = res.peerAvatar || 0;
-    updatePeerMood(res.peerMood || '');
-    res.history.forEach(render);
-    if (!res.game) { gameState = null; activeGame = null; $('gameStage').classList.add('hidden'); }
-    if (res.game) {
-      gameState = res.game;
-      activeGame = res.game.type;
-      openModal('gamesModal');
-      $('gameStage').classList.remove('hidden');
-      renderGame(res.game);
+
+    const sub = el('div', 'user-row-sub');
+    const previewText = f.lastMessage
+      ? `${f.lastMessage.fromMe ? 'You: ' : ''}${f.lastMessage.text}`
+      : `@${f.username} · Tap to chat`;
+    sub.append(el('span', '', previewText));
+    if (f.unread > 0) {
+      sub.append(el('span', 'unread-pill', String(f.unread)));
     }
-    updateHeader();
-    markSeen();
-    onDone(null, res.weather || 'clear');
+
+    info.append(top, sub);
+    row.append(avWrap, info);
+    row.onclick = () => openConversation(f.id);
+    $('inboxList').append(row);
   });
 }
 
-$('joinForm').onsubmit = (e) => {
-  e.preventDefault();
-  if (!currentAccount) return;
-  creds = { room: $('room').value.trim(), token: accountToken, cid, gender: currentAccount.gender, avatar: currentAccount.avatar, name: currentAccount.name };
-  $('err').textContent = '';
-  doJoin((err, roomWeather) => {
-    if (err) { creds = null; $('err').textContent = err; return; }
-    $('join').classList.add('hidden');
-    $('chat').classList.remove('hidden');
-    resizeCanvas();
-    applyWeather(roomWeather, null);
-    $('input').focus();
-  });
+let searchDebounce = null;
+$('userSearchInput').addEventListener('input', (e) => {
+  const q = e.target.value.trim();
+  $('clearSearchBtn').classList.toggle('hidden', !q);
+  clearTimeout(searchDebounce);
+  if (!q) {
+    $('searchResultsBox').classList.add('hidden');
+    return;
+  }
+  searchDebounce = setTimeout(() => {
+    socket.emit('users-search', q, (res) => {
+      if (res.error) return;
+      renderSearchResults(res.results || []);
+    });
+  }, 200);
+});
+
+$('clearSearchBtn').onclick = () => {
+  $('userSearchInput').value = '';
+  $('clearSearchBtn').classList.add('hidden');
+  $('searchResultsBox').classList.add('hidden');
 };
 
-socket.on('connect', () => { if (creds) doJoin((err, w) => { if (!err && w) applyWeather(w, null); }); });
-socket.on('disconnect', () => { peerOnline = false; peerTyping = false; updateHeader(true); if (gameState) renderGame(gameState); });
+function renderSearchResults(results) {
+  $('searchResultsBox').classList.remove('hidden');
+  $('searchResultsList').replaceChildren();
 
-/* ---------- Header / Presence / Mood / Synced Weather ---------- */
-function updateHeader(reconnecting) {
-  $('peerName').textContent = peerName || 'Waiting for friend…';
-  $('avatar').innerHTML = avatarArt(peerGender, peerAvatar);
-  $('myPortrait').innerHTML = avatarArt(creds?.gender, creds?.avatar);
-  $('peerPortrait').innerHTML = avatarArt(peerGender, peerAvatar);
-  $('myDisplayName').textContent = creds?.name || 'You';
-  $('friendDisplayName').textContent = peerName || 'Friend';
-  const connected = socket.connected && peerOnline && !reconnecting;
+  if (!results.length) {
+    $('searchResultsList').append(el('div', 'empty-list-hint', 'No matching users found.'));
+    return;
+  }
+
+  results.forEach((u) => {
+    const row = el('div', 'user-row');
+    const av = el('div', 'avatar sm');
+    av.innerHTML = avatarArt(u.gender, u.avatar);
+
+    const info = el('div', 'user-row-info');
+    const top = el('div', 'user-row-top');
+    top.append(el('b', '', u.name));
+    const sub = el('div', 'user-row-sub');
+    sub.append(el('span', '', `@${u.username}`));
+    info.append(top, sub);
+
+    const acts = el('div', 'row-actions');
+    if (u.relation === 'friend') {
+      const chatBtn = el('button', 'mini-pill-btn', 'Chat');
+      chatBtn.onclick = () => {
+        $('clearSearchBtn').click();
+        openConversation(u.id);
+      };
+      acts.append(chatBtn);
+    } else if (u.relation === 'incoming') {
+      const accBtn = el('button', 'mini-pill-btn solid', 'Accept');
+      accBtn.onclick = () => {
+        socket.emit('friend-accept', u.id, (res) => {
+          if (res.error) return showToast(res.error);
+          inboxData = res.inbox;
+          renderSidebar();
+          $('userSearchInput').dispatchEvent(new Event('input'));
+          showToast(`Accepted ${u.name}'s request!`);
+        });
+      };
+      acts.append(accBtn);
+    } else if (u.relation === 'outgoing') {
+      const pendBtn = el('button', 'mini-pill-btn', 'Requested');
+      pendBtn.onclick = () => {
+        socket.emit('friend-cancel', u.id, (res) => {
+          if (res.error) return showToast(res.error);
+          inboxData = res.inbox;
+          renderSidebar();
+          $('userSearchInput').dispatchEvent(new Event('input'));
+          showToast('Request cancelled');
+        });
+      };
+      acts.append(pendBtn);
+    } else {
+      const addBtn = el('button', 'mini-pill-btn solid', '+ Add');
+      addBtn.onclick = () => {
+        socket.emit('friend-request', u.username, (res) => {
+          if (res.error) return showToast(res.error);
+          inboxData = res.inbox;
+          renderSidebar();
+          $('userSearchInput').dispatchEvent(new Event('input'));
+          showToast(res.status === 'accepted' ? `You and ${u.name} are now friends!` : `Friend request sent to ${u.name}`);
+        });
+      };
+      acts.append(addBtn);
+    }
+
+    row.append(av, info, acts);
+    $('searchResultsList').append(row);
+  });
+}
+
+/* ---------- Open Conversation & Mobile Slide Toggle ---------- */
+function openConversation(peerId) {
+  socket.emit('open-chat', peerId, (res) => {
+    if (res.error) return showToast(res.error);
+
+    activePeer = res.peer;
+    activeRoomKey = res.roomKey;
+    peerTyping = false;
+    setReply(null);
+
+    // Clear unread badge locally
+    const fEntry = inboxData.friends.find((f) => f.id === peerId);
+    if (fEntry) fEntry.unread = 0;
+    renderSidebar();
+
+    // Switch mobile view to full-screen chat
+    $('messengerShell').classList.add('mobile-chat-open');
+    $('emptyChatState').classList.add('hidden');
+    $('activeChatView').classList.remove('hidden');
+
+    Object.values(items).forEach((it) => clearTimeout(it.vanishTimer));
+    $('msgs').innerHTML = '';
+    Object.keys(items).forEach((k) => delete items[k]);
+
+    res.history.forEach(render);
+    applyWeather(res.weather || 'clear', null);
+    updatePeerMood(activePeer.mood || '');
+    updateChatHeader();
+    markSeen();
+
+    if (res.game) {
+      gameState = res.game;
+      activeGame = res.game.type;
+      renderGame(res.game);
+    } else {
+      gameState = null;
+      activeGame = null;
+      $('gameStage').classList.add('hidden');
+    }
+
+    resizeCanvas();
+    if (window.innerWidth > 768) $('input').focus();
+  });
+}
+
+$('backToInboxBtn').onclick = () => {
+  $('messengerShell').classList.remove('mobile-chat-open');
+  if (activePeer) {
+    socket.emit('typing', { peerId: activePeer.id, typing: false });
+  }
+  activePeer = null;
+  activeRoomKey = '';
+  renderSidebar();
+};
+
+/* ---------- Chat Header & Presence ---------- */
+let peerTyping = false;
+
+function updateChatHeader(reconnecting) {
+  if (!activePeer) return;
+  $('peerName').textContent = activePeer.name;
+  $('avatar').innerHTML = avatarArt(activePeer.gender, activePeer.avatar);
+  $('myPortrait').innerHTML = avatarArt(currentAccount?.gender, currentAccount?.avatar);
+  $('peerPortrait').innerHTML = avatarArt(activePeer.gender, activePeer.avatar);
+  $('myDisplayName').textContent = currentAccount?.name || 'You';
+  $('friendDisplayName').textContent = activePeer.name;
+
+  const connected = socket.connected && activePeer.online && !reconnecting;
   $('duoConnection').classList.toggle('connected', connected);
-  $('connectionLabel').textContent = !socket.connected ? 'Reconnecting…' : connected ? 'Connected' : 'Waiting for friend';
-  $('friendPresence').textContent = connected ? 'Online' : peerName ? 'Offline' : 'Waiting…';
+  $('connectionLabel').textContent = !socket.connected ? 'Reconnecting…' : connected ? 'Connected' : 'Offline';
+
   const s = $('status');
-  s.textContent = reconnecting ? 'Reconnecting…' : peerTyping ? 'typing…' : peerOnline ? 'Online' : 'Offline';
-  s.className = peerOnline && !reconnecting ? 'on' : 'off';
-  $('onlineDot').className = 'online-dot' + (peerOnline && !reconnecting ? ' on' : '');
+  s.textContent = reconnecting ? 'Reconnecting…' : peerTyping ? 'typing…' : activePeer.online ? 'Online' : 'Offline';
+  s.className = activePeer.online && !reconnecting ? 'on' : 'off';
+  $('onlineDot').className = 'online-dot' + (activePeer.online && !reconnecting ? ' on' : '');
   $('typingBubble').classList.toggle('hidden', !peerTyping);
   if (peerTyping) scrollDown();
 }
@@ -409,50 +702,81 @@ function updatePeerMood(mood) {
   }
 }
 
-socket.on('presence', ({ online, name, mood, gender, avatar }) => {
-  peerOnline = online;
-  if (name) peerName = name;
-  if (gender) peerGender = gender;
-  if (avatar !== undefined) peerAvatar = avatar;
-  if (mood !== undefined) updatePeerMood(mood);
-  if (!online) { peerTyping = false; updatePeerMood(''); }
-  updateHeader();
-  if (gameState) renderGame(gameState);
-});
-socket.on('typing', (v) => { peerTyping = v; updateHeader(); });
-socket.on('mood', (mood) => updatePeerMood(mood));
-socket.on('weather', ({ weather, by }) => {
-  applyWeather(weather, by || peerName || 'Your friend');
+/* ---------- Socket Real-Time Social & Chat Events ---------- */
+socket.on('inbox-sync', (data) => {
+  inboxData = data;
+  renderSidebar();
 });
 
-/* ---------- Nudge / Buzz ---------- */
-$('nudgeBtn').onclick = () => {
-  socket.emit('nudge');
-  triggerShake();
-  showToast('🔔 You nudged your friend!');
-};
-socket.on('nudge', () => {
-  triggerShake();
-  beep(620);
-  showToast('🔔 Your friend nudged you!');
+socket.on('friend-request-received', ({ from }) => {
+  beep(740);
+  showToast(`👋 ${from.name} (@${from.username}) sent you a friend request!`);
 });
+
+socket.on('friend-accepted', ({ by }) => {
+  beep(880);
+  showToast(`🎉 ${by.name} accepted your friend request!`);
+});
+
+socket.on('friend-presence', ({ userId, online, mood, name, gender, avatar }) => {
+  const f = inboxData.friends.find((item) => item.id === userId);
+  if (f) {
+    f.online = online;
+    if (mood !== undefined) f.mood = mood;
+    if (name) f.name = name;
+    if (gender) f.gender = gender;
+    if (avatar !== undefined) f.avatar = avatar;
+    renderSidebar();
+  }
+  if (activePeer && activePeer.id === userId) {
+    activePeer.online = online;
+    if (name) activePeer.name = name;
+    if (gender) activePeer.gender = gender;
+    if (avatar !== undefined) activePeer.avatar = avatar;
+    if (mood !== undefined) {
+      activePeer.mood = mood;
+      updatePeerMood(online ? mood : '');
+    }
+    if (!online) peerTyping = false;
+    updateChatHeader();
+    if (gameState) renderGame(gameState);
+  }
+});
+
+socket.on('typing', ({ from, typing }) => {
+  if (activePeer && activePeer.id === from) {
+    peerTyping = typing;
+    updateChatHeader();
+  }
+});
+
+socket.on('weather', ({ roomKey, weather, by }) => {
+  if (roomKey === activeRoomKey) {
+    applyWeather(weather, by || activePeer?.name || 'Your friend');
+  }
+});
+
+socket.on('nudge', ({ fromId, fromName }) => {
+  beep(620);
+  showToast(`🔔 ${fromName} nudged you!`);
+  if (activePeer && activePeer.id === fromId) {
+    triggerShake();
+  }
+});
+
+$('nudgeBtn').onclick = () => {
+  if (!activePeer) return;
+  socket.emit('nudge', { peerId: activePeer.id });
+  triggerShake();
+  showToast(`🔔 You nudged ${activePeer.name}!`);
+};
+
 function triggerShake() {
-  const c = $('chat');
+  const c = $('activeChatView');
   c.classList.remove('shake');
   void c.offsetWidth;
   c.classList.add('shake');
 }
-
-/* ---------- Copy Invite Link ---------- */
-$('inviteBtn').onclick = () => {
-  if (!creds) return;
-  const link = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(creds.room)}`;
-  (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(() => {
-    showToast('🔗 Invite link copied!');
-  }).catch(() => {
-    showToast(`Passkey: ${creds.room}`);
-  });
-};
 
 /* ---------- Vanish & Spoiler Toggles ---------- */
 function updateModeStrip() {
@@ -504,15 +828,19 @@ function openImage(src) {
 function render(m) {
   if (items[m.id]) return;
   const mine = m.from === cid;
-  const d = el('div', 'm ' + (mine ? 'me' : 'them') + (m.spoiler ? ' spoiler' : '') + (m.reaction ? ' has-react' : ''));
+  const d = el(
+    'div',
+    'm ' + (mine ? 'me' : 'them') + (m.spoiler ? ' spoiler' : '') + (m.reaction ? ' has-react' : '')
+  );
   d.dataset.id = m.id;
 
   const rBar = el('div', 'react-bar');
-  ['❤️', '😂', '👍', '😮', '😢', '🔥', '💩'].forEach((emo) => {
+  ['❤️', '😂', '👍', '😮', '😢', '🔥', '🤲'].forEach((emo) => {
     const rb = el('button', '', emo);
     rb.onclick = (e) => {
       e.stopPropagation();
-      socket.emit('react', { id: m.id, emoji: emo });
+      if (!activePeer) return;
+      socket.emit('react', { peerId: activePeer.id, id: m.id, emoji: emo });
       applyReaction(m.id, emo);
     };
     rBar.append(rb);
@@ -555,11 +883,12 @@ function render(m) {
   }
 
   const rb = el('button', 'act-btn');
-  rb.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>';
+  rb.innerHTML =
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>';
   rb.title = 'Reply';
   rb.onclick = (e) => {
     e.stopPropagation();
-    setReply({ name: m.name, text: m.spoiler ? '🔒 Spoiler message' : (m.text || '📷 Photo') });
+    setReply({ name: m.name, text: m.spoiler ? '🔒 Spoiler message' : m.text || '📷 Photo' });
   };
   meta.append(rb);
   if (m.edited) meta.append(el('span', 'edited-label', 'edited'));
@@ -570,20 +899,40 @@ function render(m) {
   const actionMenu = el('div', 'message-actions hidden');
   const addAction = (label, fn, danger = false) => {
     const b = el('button', danger ? 'danger-text' : '', label);
-    b.onclick = (e) => { e.stopPropagation(); actionMenu.classList.add('hidden'); fn(); };
+    b.onclick = (e) => {
+      e.stopPropagation();
+      actionMenu.classList.add('hidden');
+      fn();
+    };
     actionMenu.append(b);
   };
   if (mine && m.text && !m.image && !m.vanish) {
     addAction('✎ Edit message', () => editMessage(m.id));
-    addAction('⌫ Delete for everyone', () => {
-      if (confirm('Delete this message for both people?')) socket.emit('delete-message', { id: m.id }, (res) => { if (res && res.error) showToast(res.error); });
-    }, true);
   }
-  addAction('Hide for me (this session)', () => {
+  if (mine) {
+    addAction(
+      '⌫ Delete for everyone',
+      () => {
+        if (activePeer && confirm('Delete this message for both people?')) {
+          socket.emit('delete-message', { peerId: activePeer.id, id: m.id }, (res) => {
+            if (res && res.error) showToast(res.error);
+          });
+        }
+      },
+      true
+    );
+  }
+  addAction('Hide for me', () => {
     d.remove();
     delete items[m.id];
   });
-  menuBtn.onclick = (e) => { e.stopPropagation(); document.querySelectorAll('.message-actions').forEach(x => { if (x !== actionMenu) x.classList.add('hidden'); }); actionMenu.classList.toggle('hidden'); };
+  menuBtn.onclick = (e) => {
+    e.stopPropagation();
+    document.querySelectorAll('.message-actions').forEach((x) => {
+      if (x !== actionMenu) x.classList.add('hidden');
+    });
+    actionMenu.classList.toggle('hidden');
+  };
   meta.append(menuBtn);
   d.append(actionMenu);
 
@@ -608,32 +957,39 @@ function render(m) {
 
 function editMessage(id) {
   const it = items[id];
-  if (!it || it.m.from !== cid || !it.m.text) return;
+  if (!it || !activePeer || it.m.from !== cid || !it.m.text) return;
   const next = prompt('Edit your message:', it.m.text);
   if (next === null || !next.trim() || next.trim() === it.m.text) return;
-  socket.emit('edit-message', { id, text: next.trim() }, (res) => {
+  socket.emit('edit-message', { peerId: activePeer.id, id, text: next.trim() }, (res) => {
     if (res && res.error) showToast(res.error);
     else showToast('Message updated ✦');
   });
 }
-socket.on('message-edited', ({ id, text, edited }) => {
+
+socket.on('message-edited', ({ roomKey, id, text, edited }) => {
+  if (roomKey !== activeRoomKey) return;
   const it = items[id];
   if (!it) return;
-  it.m.text = text; it.m.edited = edited;
+  it.m.text = text;
+  it.m.edited = edited;
   const txt = it.el.querySelector('.txt');
   if (txt) txt.textContent = text;
-  else it.el.insertBefore(el('div','txt',text), it.el.querySelector('.meta'));
   let label = it.el.querySelector('.edited-label');
   if (!label) {
-    label = el('span','edited-label','edited');
+    label = el('span', 'edited-label', 'edited');
     const meta = it.el.querySelector('.meta');
     meta.insertBefore(label, meta.querySelector('.tick'));
   }
 });
-socket.on('message-deleted', ({ id }) => {
+
+socket.on('message-deleted', ({ roomKey, id }) => {
+  if (roomKey !== activeRoomKey) return;
   const it = items[id];
-  if (it) { it.el.remove(); delete items[id]; }
-  showToast('Message deleted for everyone');
+  if (it) {
+    it.el.remove();
+    delete items[id];
+  }
+  showToast('Message deleted');
 });
 
 function applyReaction(id, emoji) {
@@ -650,90 +1006,154 @@ function applyReaction(id, emoji) {
   }
 }
 
-function scrollDown() { const c = $('msgs'); c.scrollTop = c.scrollHeight; }
+function scrollDown() {
+  const c = $('msgs');
+  c.scrollTop = c.scrollHeight;
+}
 
-/* ---------- Sending ---------- */
+/* ---------- Sending & Receiving Messages ---------- */
+function updateSidebarPreview(peerId, text, time, fromMe, incrementUnread) {
+  const f = inboxData.friends.find((item) => item.id === peerId);
+  if (!f) return;
+  f.lastMessage = { text, time, fromMe };
+  if (incrementUnread) f.unread = (f.unread || 0) + 1;
+  inboxData.friends.sort((a, b) => (b.lastMessage?.time || 0) - (a.lastMessage?.time || 0));
+  renderSidebar();
+}
+
 function send(image) {
-  if (!creds || !socket.connected) return showToast('Connection lost. Please wait before sending.');
+  if (!activePeer || !socket.connected) return showToast('Select an online friend or wait to reconnect.');
   const input = $('input');
   const text = image ? '' : input.value.trim();
   if (!text && !image) return;
+
+  const now = Date.now();
   const m = {
     id: cid.slice(0, 6) + rnd(),
+    to: activePeer.id,
     text,
     image: image || null,
     reply: replyTo,
     vanish: vanishMode,
     spoiler: spoilerMode
   };
-  render({ ...m, from: cid, name: creds.name, time: Date.now(), status: 'sending' });
-  socket.emit('msg', m, (status) => setStatus(m.id, status));
-  if (!image) { input.value = ''; input.style.height = '40px'; }
+
+  render({ ...m, from: cid, name: currentAccount.name, time: now, status: 'sending' });
+  updateSidebarPreview(activePeer.id, spoilerMode ? '🔒 Spoiler message' : image ? '📷 Photo' : text, now, true, false);
+
+  socket.emit('msg', m, (status) => {
+    if (status && status.error) return showToast(status.error);
+    setStatus(m.id, status);
+  });
+
+  if (!image) {
+    input.value = '';
+    input.style.height = '40px';
+  }
   setReply(null);
   stopTyping();
 }
 
 $('send').onclick = () => send();
 $('input').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); }
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+    e.preventDefault();
+    send();
+  }
 });
+let typingTimer;
 $('input').addEventListener('input', (e) => {
   e.target.style.height = '40px';
   e.target.style.height = Math.min(e.target.scrollHeight, 110) + 'px';
-  socket.emit('typing', true);
+  if (!activePeer) return;
+  socket.emit('typing', { peerId: activePeer.id, typing: true });
   clearTimeout(typingTimer);
   typingTimer = setTimeout(stopTyping, 1500);
 });
-let typingTimer;
-function stopTyping() { clearTimeout(typingTimer); socket.emit('typing', false); }
+function stopTyping() {
+  clearTimeout(typingTimer);
+  if (activePeer) socket.emit('typing', { peerId: activePeer.id, typing: false });
+}
 
-/* ---------- Receiving, Status, Seen, Reactions ---------- */
 socket.on('msg', (m) => {
-  render(m);
-  if (document.hidden || !document.hasFocus()) beep(880);
-  markSeen();
+  const peerId = m.from === cid ? m.to : m.from;
+  const isCurrentChat = activePeer && activePeer.id === peerId && !$('activeChatView').classList.contains('hidden');
+
+  updateSidebarPreview(
+    peerId,
+    m.spoiler ? '🔒 Spoiler message' : m.image ? '📷 Photo' : m.text,
+    m.time,
+    m.from === cid,
+    !isCurrentChat && m.from !== cid
+  );
+
+  if (isCurrentChat) {
+    render(m);
+    if (document.hidden || !document.hasFocus()) beep(880);
+    markSeen();
+  } else if (m.from !== cid) {
+    beep(880);
+    showToast(`💬 ${m.name}: ${m.spoiler ? 'Spoiler message' : m.image ? 'Sent a photo' : m.text.slice(0, 40)}`);
+  }
 });
-socket.on('status', ({ ids, status }) => ids.forEach((id) => setStatus(id, status)));
-socket.on('react', ({ id, emoji }) => applyReaction(id, emoji));
+
+socket.on('status', ({ roomKey, ids, status }) => {
+  if (roomKey === activeRoomKey) {
+    ids.forEach((id) => setStatus(id, status));
+  }
+});
+
+socket.on('react', ({ roomKey, id, emoji }) => {
+  if (roomKey === activeRoomKey) applyReaction(id, emoji);
+});
 
 function markSeen() {
-  if (document.hidden || !document.hasFocus()) return;
+  if (!activePeer || document.hidden || !document.hasFocus()) return;
   const ids = Object.values(items)
-    .filter((it) => it.m.from !== cid && !it.seenSent)
+    .filter((it) => it.m.from === activePeer.id && !it.seenSent)
     .map((it) => {
       it.seenSent = true;
       if (it.m.vanish) startVanishCountdown(it.m.id);
       return it.m.id;
     });
-  if (ids.length) socket.emit('seen', ids);
+  if (ids.length) socket.emit('seen', { peerId: activePeer.id, ids });
 }
 addEventListener('focus', markSeen);
 document.addEventListener('visibilitychange', markSeen);
 
-/* ---------- Reply ---------- */
+/* ---------- Reply, Emoji & Image Upload ---------- */
 function setReply(r) {
   replyTo = r;
   $('replyBar').classList.toggle('hidden', !r);
-  if (r) { $('rName').textContent = r.name; $('rText').textContent = r.text.slice(0, 120); $('input').focus(); }
+  if (r) {
+    $('rName').textContent = r.name;
+    $('rText').textContent = r.text.slice(0, 120);
+    $('input').focus();
+  }
 }
 $('rClose').onclick = () => setReply(null);
 
-/* ---------- Emoji Picker ---------- */
-Array.from('😀😁😂🤣😊😍😘😎🤔😅😭😡🥳😴🤗🙄😉😇🥺😢💩👍👎👏🙌🙏💪👋🤝❤️💔🔥✨🎉🎂🍕☕🌹⭐💯✅❌👀🚀🌙☀️🎵').forEach((ch) => {
-  const b = el('button', '', ch);
-  b.type = 'button';
-  b.onclick = () => { $('input').value += ch; $('input').focus(); };
-  $('emojis').append(b);
-});
+Array.from('😀😁😂🤣😊😍😘😎🤔😅😭😡🥳😴🤗🙄😉😇🥺😢🤲👍👎👏🙌🙏💪👋🤝❤️💔🔥✨🎉🎂🍕☕🌹⭐💯✅❌👀🚀🌙☀️🎵').forEach(
+  (ch) => {
+    const b = el('button', '', ch);
+    b.type = 'button';
+    b.onclick = () => {
+      $('input').value += ch;
+      $('input').focus();
+    };
+    $('emojis').append(b);
+  }
+);
 $('emojiBtn').onclick = () => $('emojis').classList.toggle('hidden');
 
-/* ---------- Images ---------- */
 $('imgBtn').onclick = () => $('file').click();
 $('file').onchange = (e) => {
   const f = e.target.files[0];
   e.target.value = '';
   if (!f) return;
-  if (!f.type.startsWith('image/') || f.size > 15 * 1024 * 1024) return showToast('Choose an image smaller than 15 MB.');
+  if (!f.type.startsWith('image/') || f.size > 15 * 1024 * 1024) {
+    return showToast('Choose an image smaller than 15 MB.');
+  }
   const reader = new FileReader();
   reader.onload = () => {
     const img = new Image();
@@ -748,113 +1168,211 @@ $('file').onchange = (e) => {
     img.onerror = () => showToast('This image could not be opened.');
     img.src = reader.result;
   };
-  reader.onerror = () => showToast('Could not read this file.');
   reader.readAsDataURL(f);
 };
 
-/* ---------- Clear Chat ---------- */
-$('clearBtn').onclick = () => { if (confirm('Clear the whole conversation for both of you?')) socket.emit('clear'); };
-socket.on('clear', () => { $('msgs').innerHTML = ''; Object.keys(items).forEach((k) => delete items[k]); });
-
-/* ---------- DuoPlay: Truth or Dare, Tic-Tac-Toe, Rock Paper Scissors ---------- */
-const TRUTHS = [
-  'What is one thing you have never told me?',
-  'What was your first impression of me?',
-  'What is a habit you want to change?',
-  'What is your funniest recent memory?',
-  'What is one thing you are secretly proud of?',
-  'If you could revisit one day, which would it be?'
-];
-const DARES = [
-  'Send your best silly selfie (or draw one).',
-  'Describe the other player using only three emojis.',
-  'Write a 10-word compliment.',
-  'Send a voice note saying a tongue twister.',
-  'Use only emojis in your next three messages.',
-  'Make up a funny nickname for the other player.'
-];
-let activeGame = null;
-let gameState = null;
-$('gamesBtn').onclick = () => { openModal('gamesModal'); if (gameState) renderGame(gameState); };
-document.querySelectorAll('[data-game]').forEach((b) => b.onclick = () => {
-  const type = b.dataset.game;
-  socket.emit('game-start', { type }, (res) => {
-    if (res && res.error) return showToast(res.error);
-    // The authoritative game-state event renders both players.
-    openModal('gamesModal');
-  });
+$('clearBtn').onclick = () => {
+  if (activePeer && confirm('Clear the whole conversation for both of you?')) {
+    socket.emit('clear', { peerId: activePeer.id });
+  }
+};
+socket.on('clear', ({ roomKey }) => {
+  if (roomKey === activeRoomKey) {
+    $('msgs').innerHTML = '';
+    Object.keys(items).forEach((k) => delete items[k]);
+  }
 });
-socket.on('game-state', (state) => {
-  gameState = state;
-  activeGame = state.type;
+
+/* ---------- DuoPlay Mini-Games (Tic-Tac-Toe, Rock Paper Scissors, Connect Four) ---------- */
+$('gamesBtn').onclick = () => {
+  if (!activePeer) return;
+  openModal('gamesModal');
+  if (gameState) {
+    $('gamePickerGrid').classList.add('hidden');
+    $('gameStage').classList.remove('hidden');
+    renderGame(gameState);
+  } else {
+    $('gamePickerGrid').classList.remove('hidden');
+    $('gameStage').classList.add('hidden');
+  }
+};
+
+document.querySelectorAll('[data-game]').forEach((b) => {
+  b.onclick = () => {
+    if (!activePeer) return;
+    const type = b.dataset.game;
+    socket.emit('game-start', { peerId: activePeer.id, type }, (res) => {
+      if (res && res.error) return showToast(res.error);
+    });
+  };
+});
+
+socket.on('game-state', ({ roomKey, game }) => {
+  if (roomKey !== activeRoomKey) return;
+  gameState = game;
+  activeGame = game ? game.type : null;
+
+  if (!game) {
+    $('gameStage').classList.add('hidden');
+    $('gamePickerGrid').classList.remove('hidden');
+    return;
+  }
+
   closeModal('themesModal');
   openModal('gamesModal');
+  $('gamePickerGrid').classList.add('hidden');
   $('gameStage').classList.remove('hidden');
-  renderGame(state);
+  renderGame(game);
 });
-function gameButton(label, action, primary=false) {
+
+function gameButton(label, action, primary = false) {
   const b = el('button', 'game-action' + (primary ? ' primary-action' : ''), label);
+  b.type = 'button';
   b.onclick = action;
   return b;
 }
-function gameTitle(title, desc) {
-  const stage = $('gameStage');
-  stage.innerHTML = '';
-  stage.append(el('h3','',title), el('p','',desc));
-  return stage;
-}
+
 function renderGame(g) {
   gameState = g;
-  $('gameStage').classList.remove('hidden');
   const stage = $('gameStage');
-  if (g.type === 'truth') {
-    const myTurn = g.turn === cid;
-    const node = gameTitle('♡ Truth or Dare', myTurn ? 'Your turn — choose honestly or boldly.' : 'Your friend is choosing. Get ready!');
-    if (g.prompt) node.append(el('div','game-prompt',`${g.lastAction === 'dare' ? '⚡ Dare' : g.lastAction === 'truth' ? '♡ Truth' : '↷'}: ${g.prompt}`));
-    const actions = el('div','game-actions');
-    if (myTurn && peerOnline && socket.connected) {
-      actions.append(
-        gameButton('♡ Truth', () => sendTruthDare('truth', TRUTHS[Math.floor(Math.random()*TRUTHS.length)]), true),
-        gameButton('⚡ Dare', () => sendTruthDare('dare', DARES[Math.floor(Math.random()*DARES.length)])),
-        gameButton('↷ Skip', () => sendTruthDare('skip','Turn skipped'))
-      );
-    } else actions.append(el('span','game-wait','Waiting for your friend…'));
-    node.append(actions, gameButton('↻ New round', () => socket.emit('game-reset')));
-  } else if (g.type === 'tictactoe') {
-    const mark = g.marks && g.marks[cid];
-    const opponentMark = mark === 'X' ? 'O' : 'X';
-    const node = gameTitle('✕ Tic-Tac-Toe', g.result || (g.turn === cid ? `Your turn (${mark})` : `Friend's turn (${opponentMark})`));
-    const board = el('div','game-board');
-    (g.board || Array(9).fill('')).forEach((value, index) => {
-      const b = el('button','game-cell',value);
-      b.disabled = !peerOnline || !socket.connected || !!value || !!g.result || g.turn !== cid;
-      b.setAttribute('aria-label', `Cell ${index + 1}: ${value || 'empty'}`);
-      b.onclick = () => socket.emit('game-action',{type:'tictactoe',index},(res)=>res&&res.error&&showToast(res.error));
-      board.append(b);
+  stage.innerHTML = '';
+
+  const peerId = activePeer?.id;
+  const peerLabel = activePeer?.name || 'Friend';
+  const myScore = g.scores?.[cid] || 0;
+  const peerScore = g.scores?.[peerId] || 0;
+
+  const head = el('div', 'game-stage-head');
+  const titleMap = {
+    tictactoe: '✕ Tic-Tac-Toe',
+    rps: '✊ Rock Paper Scissors',
+    connect4: '● Connect Four'
+  };
+  head.append(
+    el('h3', '', titleMap[g.type] || 'DuoPlay'),
+    el('span', 'score-pill', `You ${myScore} — ${peerScore} ${peerLabel}`)
+  );
+  stage.append(head);
+
+  if (g.type === 'tictactoe') {
+    const myMark = g.marks?.[cid] || 'X';
+    const oppMark = myMark === 'X' ? 'O' : 'X';
+    const statusText = g.result
+      ? g.result
+      : g.turn === cid
+      ? `Your turn (${myMark})`
+      : `${peerLabel}'s turn (${oppMark})`;
+    stage.append(el('p', '', statusText));
+
+    const board = el('div', 'game-board');
+    (g.board || Array(9).fill('')).forEach((val, idx) => {
+      const cell = el('button', 'game-cell' + (g.winLine && g.winLine.includes(idx) ? ' win-cell' : ''), val);
+      cell.type = 'button';
+      cell.disabled = !socket.connected || !!val || !!g.result || g.turn !== cid;
+      cell.setAttribute('aria-label', `Cell ${idx + 1}: ${val || 'empty'}`);
+      cell.onclick = () => {
+        socket.emit('game-action', { peerId, type: 'tictactoe', index: idx }, (res) => {
+          if (res && res.error) showToast(res.error);
+        });
+      };
+      board.append(cell);
     });
-    node.append(board, gameButton(g.result ? '↻ Play again' : '↻ Restart round', () => socket.emit('game-reset'), true));
+
+    const acts = el('div', 'game-actions');
+    acts.append(
+      gameButton(g.result ? '↻ Play Again' : '↻ Restart', () => socket.emit('game-reset', { peerId }), true),
+      gameButton('Switch Game', () => socket.emit('game-close', { peerId }))
+    );
+    stage.append(board, acts);
   } else if (g.type === 'rps') {
-    const node = gameTitle('✊ Rock Paper Scissors', `Round ${g.round || 1} · You ${g.scores?.[cid]||0} — Friend ${Object.entries(g.scores||{}).filter(([id])=>id!==cid).reduce((n,[,v])=>n+v,0)}`);
+    stage.append(el('p', '', `Round ${g.round || 1} · First to 2 points wins the match`));
+
     if (g.lastRound) {
+      const emojiMap = { rock: '✊', paper: '✋', scissors: '✌️' };
       const mine = g.lastRound.choices?.[cid];
-      const other = Object.entries(g.lastRound.choices||{}).find(([id])=>id!==cid)?.[1];
-      node.append(el('div','game-prompt',`${({rock:'✊',paper:'✋',scissors:'✌️'})[mine]||'—'}  vs  ${({rock:'✊',paper:'✋',scissors:'✌️'})[other]||'—'} · ${g.lastRound.winner === null ? 'Draw!' : g.lastRound.winner === cid ? 'You won this round!' : 'Friend won this round!'}`));
+      const other = g.lastRound.choices?.[peerId];
+      const outcome =
+        g.lastRound.winner === null
+          ? 'Round Draw!'
+          : g.lastRound.winner === cid
+          ? 'You won that round!'
+          : `${peerLabel} won that round!`;
+      stage.append(el('div', 'game-prompt', `${emojiMap[mine] || '—'}  vs  ${emojiMap[other] || '—'} · ${outcome}`));
     }
-    const choices = el('div','rps-choices');
-    [['rock','✊','Rock'],['paper','✋','Paper'],['scissors','✌️','Scissors']].forEach(([v,emo,label])=>{
-      const b=el('button','',emo); b.append(el('small','',label));
-      b.disabled=!peerOnline || !socket.connected || !!g.matchWinner || !!(g.choices && g.choices[cid]);
-      b.onclick=()=>socket.emit('game-action',{type:'rps',choice:v},(res)=>res&&res.error&&showToast(res.error));
+
+    const myLocked = g.choices && g.choices[cid] && g.choices[cid] !== 'locked';
+    const peerLocked = g.choices && g.choices[peerId] === 'locked';
+
+    const choices = el('div', 'rps-choices');
+    [
+      ['rock', '✊', 'Rock'],
+      ['paper', '✋', 'Paper'],
+      ['scissors', '✌️', 'Scissors']
+    ].forEach(([val, emo, label]) => {
+      const b = el('button', myLocked === val ? 'selected-choice' : '', emo);
+      b.type = 'button';
+      b.append(el('small', '', label));
+      b.disabled = !socket.connected || !!g.matchWinner || !!myLocked;
+      b.onclick = () => {
+        socket.emit('game-action', { peerId, type: 'rps', choice: val }, (res) => {
+          if (res && res.error) showToast(res.error);
+        });
+      };
       choices.append(b);
     });
-    if (g.matchWinner) node.append(el('div','game-prompt',g.matchWinner === cid ? '🏆 You won the match!' : '🏆 Friend won the match!'));
-    node.append(choices);
-    if (g.choices && Object.keys(g.choices).length) node.append(el('p','game-wait','Choice locked in — waiting for the other player…'));
-    node.append(gameButton('↻ Reset match',()=>socket.emit('game-reset'),true));
+    stage.append(choices);
+
+    if (g.matchWinner) {
+      stage.append(
+        el('div', 'game-prompt', g.matchWinner === cid ? '🏆 You won the match!' : `🏆 ${peerLabel} won the match!`)
+      );
+    } else if (myLocked) {
+      stage.append(el('div', 'game-wait', `Choice locked in — waiting for ${peerLabel}…`));
+    } else if (peerLocked) {
+      stage.append(el('div', 'game-wait', `${peerLabel} has chosen — pick your move!`));
+    }
+
+    const acts = el('div', 'game-actions');
+    acts.append(
+      gameButton('↻ New Match', () => socket.emit('game-reset', { peerId }), true),
+      gameButton('Switch Game', () => socket.emit('game-close', { peerId }))
+    );
+    stage.append(acts);
+  } else if (g.type === 'connect4') {
+    const myColor = g.colors?.[cid] || 'R';
+    const myDiscLabel = myColor === 'R' ? 'Red' : 'Gold';
+    const oppDiscLabel = myColor === 'R' ? 'Gold' : 'Red';
+    const statusText = g.result
+      ? g.result
+      : g.turn === cid
+      ? `Your turn (${myDiscLabel} disc)`
+      : `${peerLabel}'s turn (${oppDiscLabel} disc)`;
+    stage.append(el('p', '', statusText));
+
+    const board = el('div', 'c4-board');
+    for (let idx = 0; idx < 42; idx++) {
+      const val = g.board[idx];
+      const col = idx % 7;
+      const isWin = g.winCells && g.winCells.includes(idx);
+      const cell = el('button', 'c4-cell' + (val ? ` disc-${val}` : '') + (isWin ? ' win-disc' : ''));
+      cell.type = 'button';
+      cell.disabled = !socket.connected || !!g.result || g.turn !== cid || !!g.board[col];
+      cell.setAttribute('aria-label', `Column ${col + 1}`);
+      cell.onclick = () => {
+        socket.emit('game-action', { peerId, type: 'connect4', col }, (res) => {
+          if (res && res.error) showToast(res.error);
+        });
+      };
+      board.append(cell);
+    }
+
+    const acts = el('div', 'game-actions');
+    acts.append(
+      gameButton(g.result ? '↻ Play Again' : '↻ Restart', () => socket.emit('game-reset', { peerId }), true),
+      gameButton('Switch Game', () => socket.emit('game-close', { peerId }))
+    );
+    stage.append(board, acts);
   }
-}
-function sendTruthDare(action,prompt) {
-  socket.emit('game-action',{type:'truth',action,prompt},(res)=>res&&res.error&&showToast(res.error));
 }
 
 /* ---------- Notification Sound ---------- */
@@ -862,63 +1380,145 @@ let audio;
 function beep(freq = 880) {
   try {
     audio = audio || new (window.AudioContext || window.webkitAudioContext)();
-    const o = audio.createOscillator(), g = audio.createGain();
+    const o = audio.createOscillator();
+    const g = audio.createGain();
     o.frequency.value = freq;
-    g.gain.setValueAtTime(0.08, audio.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.25);
-    o.connect(g); g.connect(audio.destination);
-    o.start(); o.stop(audio.currentTime + 0.25);
+    g.gain.setValueAtTime(0.07, audio.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.22);
+    o.connect(g);
+    g.connect(audio.destination);
+    o.start();
+    o.stop(audio.currentTime + 0.22);
   } catch (e) {}
 }
 
-/* Account entry and the sixteen original avatar colorways. */
-let authMode = 'login', selectedGender = 'male', selectedAvatar = 0;
-function gallery() {
+/* ---------- Authentication & Avatar Gallery ---------- */
+let authMode = 'login';
+let selectedGender = 'male';
+let selectedAvatar = 0;
+
+function renderAvatarGallery() {
   $('avatarGallery').replaceChildren();
-  for (let i=0; i<8; i++) {
-    const button = el('button','avatar-option'); button.type = 'button';
-    button.innerHTML = avatarArt(selectedGender,i);
-    button.append(el('span','avatar-name',AVATAR_NAMES[selectedGender][i]));
+  for (let i = 0; i < 8; i++) {
+    const button = el('button', 'avatar-option');
+    button.type = 'button';
+    button.innerHTML = avatarArt(selectedGender, i);
+    button.append(el('span', 'avatar-name', AVATAR_NAMES[selectedGender][i]));
     button.title = AVATAR_NAMES[selectedGender][i];
-    button.setAttribute('aria-label', AVATAR_NAMES[selectedGender][i]);
     button.setAttribute('aria-pressed', String(i === selectedAvatar));
-    button.onclick = () => { selectedAvatar=i; gallery(); };
+    button.onclick = () => {
+      selectedAvatar = i;
+      renderAvatarGallery();
+    };
     $('avatarGallery').append(button);
   }
-  $('maleAvatars').setAttribute('aria-pressed',String(selectedGender==='male'));
-  $('femaleAvatars').setAttribute('aria-pressed',String(selectedGender==='female'));
+  $('maleAvatars').setAttribute('aria-pressed', String(selectedGender === 'male'));
+  $('femaleAvatars').setAttribute('aria-pressed', String(selectedGender === 'female'));
 }
+
 function setAuthMode(mode) {
-  authMode=mode; $('registerFields').classList.toggle('hidden',mode==='login');
-  $('authSubmit').textContent=mode==='login'?'Sign in':'Create account';
-  $('password').autocomplete=mode==='login'?'current-password':'new-password';
-  $('loginTab').classList.toggle('primary-action',mode==='login');
-  $('registerTab').classList.toggle('primary-action',mode==='register');
-  $('authError').textContent='';
+  authMode = mode;
+  $('registerFields').classList.toggle('hidden', mode === 'login');
+  $('authSubmit').textContent = mode === 'login' ? 'Sign in' : 'Create account';
+  $('password').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
+  $('loginTab').classList.toggle('primary-action', mode === 'login');
+  $('registerTab').classList.toggle('primary-action', mode === 'register');
+  $('authError').textContent = '';
 }
-function enterAccount(user) {
-  currentAccount=user; cid=user.id;
-  $('name').value=user.name; $('name').readOnly=true;
-  $('auth').classList.add('hidden'); $('join').classList.remove('hidden');
-  $('password').value='';
-}
-$('loginTab').onclick=()=>setAuthMode('login'); $('registerTab').onclick=()=>setAuthMode('register');
-$('maleAvatars').onclick=()=>{selectedGender='male';gallery();};
-$('femaleAvatars').onclick=()=>{selectedGender='female';gallery();};
-$('authForm').onsubmit=e=>{
-  e.preventDefault();
-  if (!socket.connected) { $('authError').textContent='Connecting. Please try again shortly.'; return; }
-  $('authSubmit').disabled=true; $('authError').textContent='';
-  socket.timeout(15000).emit('account-auth',{mode:authMode,username:$('username').value,password:$('password').value,name:$('accountName').value,gender:selectedGender,avatar:selectedAvatar},(err,res)=>{
-    $('authSubmit').disabled=false;
-    if(err || res?.error) { $('authError').textContent=res?.error || 'Request timed out. Please try again.';return; }
-    accountToken=res.token;sessionStorage.setItem('accountToken',accountToken);enterAccount(res.user);
+
+function enterApp(user) {
+  currentAccount = user;
+  cid = user.id;
+  $('sidebarMyAvatar').innerHTML = avatarArt(user.gender, user.avatar);
+  $('sidebarMyName').textContent = user.name;
+  $('sidebarMyHandle').textContent = '@' + user.username;
+  $('password').value = '';
+
+  socket.emit('session-init', accountToken, (res) => {
+    if (res.error) {
+      sessionStorage.removeItem('accountToken');
+      accountToken = '';
+      currentAccount = null;
+      $('app').classList.add('hidden');
+      $('auth').classList.remove('hidden');
+      $('authError').textContent = res.error;
+      return;
+    }
+    inboxData = res.inbox;
+    $('auth').classList.add('hidden');
+    $('app').classList.remove('hidden');
+    renderSidebar();
   });
+}
+
+$('loginTab').onclick = () => setAuthMode('login');
+$('registerTab').onclick = () => setAuthMode('register');
+$('maleAvatars').onclick = () => {
+  selectedGender = 'male';
+  renderAvatarGallery();
 };
-$('logoutBtn').onclick=()=>{sessionStorage.removeItem('accountToken');socket.emit('account-logout',accountToken);location.reload();};
-socket.on('connect',()=>{
-  if(accountToken && !currentAccount) socket.emit('account-resume',accountToken,res=>{
-    if(res.user) enterAccount(res.user);else { accountToken='';sessionStorage.removeItem('accountToken'); }
-  });
+$('femaleAvatars').onclick = () => {
+  selectedGender = 'female';
+  renderAvatarGallery();
+};
+
+$('authForm').onsubmit = (e) => {
+  e.preventDefault();
+  if (!socket.connected) {
+    $('authError').textContent = 'Connecting… please try again in a moment.';
+    return;
+  }
+  $('authSubmit').disabled = true;
+  $('authError').textContent = '';
+  socket.timeout(15000).emit(
+    'account-auth',
+    {
+      mode: authMode,
+      username: $('username').value,
+      password: $('password').value,
+      name: $('accountName').value,
+      gender: selectedGender,
+      avatar: selectedAvatar
+    },
+    (err, res) => {
+      $('authSubmit').disabled = false;
+      if (err || res?.error) {
+        $('authError').textContent = res?.error || 'Request timed out. Please try again.';
+        return;
+      }
+      accountToken = res.token;
+      sessionStorage.setItem('accountToken', accountToken);
+      enterApp(res.user);
+    }
+  );
+};
+
+$('logoutBtn').onclick = () => {
+  sessionStorage.removeItem('accountToken');
+  socket.emit('account-logout', accountToken);
+  location.reload();
+};
+
+socket.on('connect', () => {
+  if (accountToken) {
+    socket.emit('account-resume', accountToken, (res) => {
+      if (res.user) {
+        enterApp(res.user);
+        if (activePeer) openConversation(activePeer.id);
+      } else {
+        accountToken = '';
+        sessionStorage.removeItem('accountToken');
+      }
+    });
+  }
 });
-gallery();
+
+socket.on('disconnect', () => {
+  if (activePeer) {
+    peerTyping = false;
+    updateChatHeader(true);
+    if (gameState) renderGame(gameState);
+  }
+});
+
+renderAvatarGallery();
