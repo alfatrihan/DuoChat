@@ -8,17 +8,87 @@ let accountToken = sessionStorage.getItem('accountToken') || '';
 let currentAccount = null;
 
 // Original lightweight SVG artwork; no external avatar service or image download.
+const AVATAR_NAMES = {
+  female: ['Pearl Elegance','City Scholar','Rose Drape','Sporty Minimal','Royal Pleats','Soft Classic','Modern Wrap','Midnight Luxe'],
+  male: ['Classic Gentleman','Urban Scholar','Curly Creative','Clean Minimal','Wavy Modern','Sharp Professional','Relaxed Youth','Distinguished']
+};
 function avatarArt(gender, variant = 0) {
-  if (!gender) return '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="48" fill="#25314c"/><circle cx="50" cy="38" r="15" fill="#a8b6cf"/><path d="M20 90V78a30 30 0 0 1 60 0v12" fill="#a8b6cf"/></svg>';
-  const face = '<ellipse cx="50" cy="43" rx="17" ry="21" fill="#c99570"/><path d="M42 42h2m12 0h2" stroke="#382a29" stroke-width="3" stroke-linecap="round"/><path d="M46 53q4 4 8 0" fill="none" stroke="#80503f" stroke-width="2" stroke-linecap="round"/>';
-  const body = gender === 'female'
-    ? '<path d="M12 100q3-30 15-43V36Q27 8 50 8t24 28v21q13 13 15 43" fill="#263c61"/>' + face + '<path d="M27 39Q25 10 49 8q27-1 27 32L64 28q-17 4-29-5l-8 17v18q8 12 24 19 13-7 24-20l14 43H12l15-42" fill="#637caf"/><path d="M30 54q5 15 21 23 15-9 20-23M51 77q8 10 22 13" fill="none" stroke="#a8bce0" stroke-width="2.5" stroke-linecap="round"/><path d="M26 36q2-20 20-23" fill="none" stroke="#8da4cf" stroke-width="2"/><circle cx="67" cy="73" r="3" fill="#e5c78b"/><circle cx="67" cy="73" r="1.2" fill="#fff2ce"/>'
-    : '<path d="M12 100V85q4-17 28-20h20q25 3 28 20v15" fill="#dddcd3"/><path d="M42 61v11l8 7 8-7V61" fill="#b78260"/>' + face + '<path d="M32 42q-8-24 7-30 13-10 30 0l5-4q1 13-7 20l-3 12-3-13q-15 5-25-2l-1 17" fill="#292632"/><path d="M36 22q12-13 29-7M41 25q10-8 20-6" fill="none" stroke="#514456" stroke-width="2.4" stroke-linecap="round"/><path d="M35 49q3 14 15 17 13-3 16-17l-7 9-9 4-9-4" fill="#49352f" opacity=".8"/><path d="M46 53q4 4 8 0" fill="none" stroke="#f0bb96" stroke-width="1.6" stroke-linecap="round"/><path d="M40 65l10 13 10-13M50 78v22" fill="none" stroke="#a9ada9" stroke-width="2"/><path d="M40 65l10 9 10-9" fill="none" stroke="#faf9f2" stroke-width="3"/><circle cx="54" cy="84" r="1.5" fill="#a58c64"/><circle cx="54" cy="91" r="1.5" fill="#a58c64"/>';
-  let art = '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="50" fill="' + (gender === 'female' ? '#1e304b' : '#35304f') + '"/><circle cx="76" cy="22" r="27" fill="#ffffff" opacity=".04"/>' + body + '</svg>';
-  const palettes = [ ['#637caf','#dddcd3','#c99570'], ['#8d627a','#314663','#bd8864'], ['#457f79','#e5d5b8','#dfb08b'], ['#9a754e','#576b62','#a66f4f'], ['#706299','#c4cddd','#d6a17e'], ['#ae6b69','#3d3a50','#bc886a'], ['#3c6b92','#e8e0d3','#e4b58e'], ['#68754c','#695c75','#a97555'] ];
-  const colors = palettes[Math.max(0,Math.min(7,Number(variant)||0))];
-  art = art.replaceAll('#637caf',colors[0]).replaceAll('#dddcd3',colors[1]).replaceAll('#c99570',colors[2]);
-  return art;
+  if (!gender) return '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="50" fill="#25314c"/><circle cx="50" cy="38" r="15" fill="#a8b6cf"/><path d="M20 100V78a30 30 0 0 1 60 0v22" fill="#a8b6cf"/></svg>';
+  const n = Math.max(0, Math.min(7, Number(variant) || 0));
+  const female = gender === 'female';
+  const skin = ['#d4a17e','#ab7456','#e5b69a','#bf8a69','#b97e5e','#e3ae8c','#cf9676','#936448'][n];
+  const cloth = ['#7e8daa','#37635d','#ad6f86','#4c566e','#6e5184','#a28c6f','#477b91','#363c50'][n];
+  const ink = '#302b35';
+  const line = d => `<path d="${d}" fill="none" stroke="${ink}" stroke-width="1.7" stroke-linecap="round"/>`;
+  const shoulders = `<path d="M8 100V91q5-20 32-23h20q27 3 32 23v9" fill="${female ? '#28334b' : cloth}"/>`;
+  const faces = [
+    'M34 32Q50 22 66 32v16q-2 17-16 20-14-3-16-20Z',
+    'M33 32Q50 23 67 32v18q-3 15-17 17-14-2-17-17Z',
+    'M32 35q18-18 36 0v13q-2 19-18 21-16-2-18-21Z',
+    'M35 29q15-8 30 0v22q-3 16-15 17-12-1-15-17Z',
+    'M33 33q17-15 34 0v15q-1 14-17 22-16-8-17-22Z',
+    'M32 34q18-13 36 0v15q-4 18-18 19-14-1-18-19Z',
+    'M35 31q15-12 30 0v20q-1 14-15 19-14-5-15-19Z',
+    'M32 32q18-12 36 0v19q-4 14-18 16-14-2-18-16Z'
+  ];
+  let face = `<path d="${faces[n]}" fill="${skin}"/>`;
+  face += line(n%2 ? 'M39 40q4-3 8-1m7 0q4-2 8 1' : 'M39 38q4-2 8 0m7 0q4-2 8 0');
+  face += line(n===2 || n===5 ? 'M40 46q3 3 6 0m9 0q3 3 6 0' : 'M41 45h3m12 0h3');
+  face += `<path d="M50 46l-2 7h4" fill="none" stroke="#9b6755" stroke-width="1" stroke-linecap="round"/>`;
+  face += line(n===3 ? 'M46 59h8' : n===2 || n===5 ? 'M43 57q7 9 14 0Z' : 'M45 58q5 4 10 0');
+  const glasses = `<g fill="none" stroke="#d5bf94" stroke-width="2"><rect x="36" y="41" width="13" height="10" rx="4"/><rect x="53" y="41" width="13" height="10" rx="4"/><path d="M49 45h4m-17-1h-4m34 0h3"/></g>`;
+  let art = shoulders;
+  if (female) {
+    const backs = [
+      'M20 100V35Q20 8 50 8t30 27v65Z',
+      'M22 100V31Q25 10 50 10t28 25l6 65Z',
+      'M16 100l8-68Q27 8 51 9q28 1 27 31l9 60Z',
+      'M25 100V33Q25 12 50 12t25 21v67Z',
+      'M17 100l5-69Q24 7 50 7t28 24l5 69Z',
+      'M19 100V34Q20 12 50 10q29 0 30 24v66Z',
+      'M17 100l7-67Q26 10 51 10q26 0 26 25l8 65Z',
+      'M19 100V32Q21 6 50 6t31 26v68Z'
+    ];
+    const wraps = [
+      'M22 34Q24 10 50 10q25 0 28 24L63 28Q45 29 35 25L30 42v17q5 12 20 19 15-8 21-19l9 41H20l8-40Z',
+      'M24 33Q27 12 50 12q23 0 27 22L65 30q-16 0-30-4l-7 15v18q7 14 22 19l24-17 10 39H22l7-39Z',
+      'M24 32Q29 9 51 11q25 0 26 24L63 30 48 22 34 31l-6 14 1 15q8 17 31 26L34 100H16l13-40Z',
+      'M26 34Q27 13 50 13t24 21L62 29H38l-8 13v17q5 12 20 18 15-6 20-18l5 41H25l5-41Z',
+      'M23 32Q26 9 50 9t26 23L63 27 48 20 35 27l-7 16v16q8 15 22 21l24-18 9 38H17l11-41Z',
+      'M21 36Q23 12 50 12t28 24L65 29q-15 5-28-3l-9 16v18q6 13 22 18l23-16 7 38H19l9-40Z',
+      'M25 32Q28 11 51 12q23 0 25 23L65 29 41 24l-11 9-2 24q8 14 23 19l24-17 10 41H17l11-43Z',
+      'M21 33Q24 8 50 8t29 25L64 26 50 21 35 26l-8 16v17q7 15 23 21l25-19 6 39H19l8-41Z'
+    ];
+    art += `<path d="${backs[n]}" fill="${cloth}"/>` + face + `<path d="${wraps[n]}" fill="${cloth}"/>`;
+    const folds = [ 'M29 58q6 15 21 20l20-14M50 78l15 22', 'M29 59q7 15 21 19l23-16M29 68l6 32', 'M29 59q10 17 31 27L34 100M32 67l28 19', 'M30 59q5 12 20 18 15-6 20-18M43 78v22', 'M28 59q8 15 22 21l24-18M30 24l18-9 23 14M33 27l15-8 20 12', 'M28 60q6 13 22 18l23-16M50 78l-9 22', 'M28 57q8 14 23 19l24-17M51 76q13 6 26 3M62 82l-6 18', 'M27 59q7 15 23 21l25-19M30 26l20-11 22 14M50 80l20 20' ];
+    art += `<path d="${folds[n]}" fill="none" stroke="#ffffff" opacity=".25" stroke-width="2" stroke-linecap="round"/>`;
+    if(n===1) art += glasses;
+    if(n===0) art += '<g fill="#f1e6ce"><circle cx="67" cy="71" r="3"/><circle cx="67" cy="71" r="1" fill="#fff"/></g>';
+    if(n===2) art += '<path d="M68 72q-7-8-10 0 4 6 10 0 6-5 9 0-3 7-9 0" fill="#e8a5b9"/><circle cx="68" cy="72" r="2" fill="#f6e3ae"/>';
+    if(n===4 || n===7) art += '<path d="m68 69 4 5-4 5-4-5Z" fill="#ddbd7f"/><path d="M28 88q22 10 44 0" stroke="#ddbd7f" fill="none" stroke-width="1.5"/>';
+    if(n===6) art += '<path d="M29 86h11v8H29Z" fill="#cfbc88"/>';
+  } else {
+    art += `<path d="M42 60v12l8 8 8-8V60" fill="${skin}"/>` + face;
+    const hair = [
+      'M32 41q-7-25 10-30 13-8 28 2l5-5q1 15-10 21l-2 10-2-12q-14 6-25-2l-1 17Z',
+      'M31 41V24q2-15 20-15 20 0 20 18v14l-6-13-29-1Z',
+      'M31 42l-4-16 6-6-1-7 10-1 6-6 8 4 10-2 3 7 7 5-6 22-5-15-29 2Z',
+      'M33 39V25q3-12 17-12t18 12v14l-5-12H38Z',
+      'M30 43q-8-25 9-31 15-12 31 2 11 8-1 30l-4-14q-18 4-25-8l-5 20Z',
+      'M31 40V25q-1-17 20-17 22 0 20 21l-4 12-3-15q-13 2-23-4l-5 18Z',
+      'M31 43l-4-20q5-15 24-14l20 9-2 23-5-16-5 8-9-10-12 8-3 12Z',
+      'M31 42V26q2-17 19-17t21 17v16l-7-14H37Z'
+    ];
+    art += `<path d="${hair[n]}" fill="${n===7 ? '#66636b' : '#302b35'}"/>`;
+    if([0,1,4,5,7].includes(n)) art += `<path d="${n===7 ? 'M34 48q4 18 16 23 13-5 17-23l-8 9-9 4-9-4Z' : n===1 ? 'M35 53q3 15 15 16 12-1 16-16l-10 9H44Z' : 'M35 51q4 16 15 17 12-1 16-17l-8 9-8 3-8-3Z'}" fill="${n===7 ? '#77727a' : '#49362f'}"/>`;
+    art += line('M40 70l10 9 10-9M50 79v21');
+    if(n===1 || n===5) art += glasses;
+    if(n===2) art += '<path d="M37 73l-7 27m33-27 7 27" stroke="#c8af8e" stroke-width="2"/>';
+    if(n===4) art += '<path d="M36 73l-8 25h44L64 73" fill="none" stroke="#c1b1a1" stroke-width="2"/>';
+    if(n===7) art += '<path d="M40 72l10 7 10-7M31 84v10h10" fill="none" stroke="#e1c792" stroke-width="2"/>';
+    art += '<circle cx="54" cy="85" r="1.3" fill="#d3bd92"/><circle cx="54" cy="92" r="1.3" fill="#d3bd92"/>';
+  }
+  return `<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="50" fill="${['#273551','#24413f','#443247','#2d3645','#3f3052','#433a32','#233e50','#262b3d'][n]}"/><circle cx="80" cy="20" r="31" fill="#ffffff" opacity=".06"/>${art}</svg>`;
 }
 document.querySelectorAll('[data-avatar]').forEach(node => node.innerHTML = avatarArt(node.dataset.avatar));
 let peerGender = null;
@@ -808,7 +878,9 @@ function gallery() {
   for (let i=0; i<8; i++) {
     const button = el('button','avatar-option'); button.type = 'button';
     button.innerHTML = avatarArt(selectedGender,i);
-    button.setAttribute('aria-label', `${selectedGender} avatar ${i+1}`);
+    button.append(el('span','avatar-name',AVATAR_NAMES[selectedGender][i]));
+    button.title = AVATAR_NAMES[selectedGender][i];
+    button.setAttribute('aria-label', AVATAR_NAMES[selectedGender][i]);
     button.setAttribute('aria-pressed', String(i === selectedAvatar));
     button.onclick = () => { selectedAvatar=i; gallery(); };
     $('avatarGallery').append(button);
