@@ -23,20 +23,20 @@ const items = {}; // id -> { m, el, tick, seenSent, vanishTimer }
 /* ---------- Minimalist Flat Vector Avatars (16 Theme-Adaptive Modern Islamic & Modest Portraits) ---------- */
 const AVATAR_NAMES = {
   male: [
-    'Tied Bun & Overshirt',
+    'Top Bun & Overshirt',
     'Long Hair & Kurta',
-    'Wavy Hair & Beard',
-    'Shades & Olive Jacket',
-    'Sunglasses & Denim',
-    'Modern Quiff & Hoodie',
-    'Sage Turban & Thobe',
+    'Textured Wavy Beard',
+    'Utility Jacket & Shades',
+    'Denim & Sunglasses',
+    'Quiff & Casual Hoodie',
+    'Sage Amamah & Thobe',
     'Short Fade & Kurta'
   ],
   female: [
     'Rust Hijab & Shades',
     'Dusty Rose & Blazer',
     'Emerald Pleated',
-    'Classic Black Niqab',
+    'Onyx Black Niqab',
     'Navy Hijab & Shades',
     'Lavender & Glasses',
     'Caramel & Shades',
@@ -56,9 +56,9 @@ function avatarArt(gender, variant = 0) {
   const n = Math.max(0, Math.min(7, Number(variant) || 0));
   const female = gender === 'female';
 
-  // Theme-adaptive translucent radial wash so every avatar harmonizes with Light, Dark, Midnight, Aurora, Sakura, Ocean, Sunset & AMOLED themes
+  // Theme-adaptive translucent wash so every avatar harmonizes seamlessly with Light, Dark, Midnight, Aurora, Sakura, Ocean, Sunset & AMOLED themes
+  const washTint = 'rgba(139,92,246,0.13)';
   const washLight = 'rgba(255,255,255,0.12)';
-  const washTint  = 'rgba(139,92,246,0.12)';
 
   if (female) {
     const styles = [
@@ -66,52 +66,44 @@ function avatarArt(gender, variant = 0) {
       { hijab: '#a6563b', shade: '#823f29', inner: '#f3e5dc', outfit: '#2b2d34', lapel: '#1e2026', skin: '#e8be9e', glasses: 'round', brooch: false },
       // F2: Dusty Rose Hijab + Taupe Blazer
       { hijab: '#b87a86', shade: '#965d68', inner: '#f5e6e9', outfit: '#9e8c7a', lapel: '#7d6d5e', skin: '#e4b796', glasses: 'none', brooch: false },
-      // F3: Emerald Pleated Hijab + Dark Emerald Abaya + Gold Brooch
+      // F3: Emerald Pleated Hijab + Dark Emerald Abaya + Gold Floral Brooch
       { hijab: '#236b54', shade: '#174f3d', inner: '#d9ece5', outfit: '#153b2f', lapel: '#2e8569', skin: '#ecc5a7', glasses: 'none', brooch: '#d4af37' },
-      // F4: Classic Black Niqab & Flowing Black Abaya
+      // F4: Classic Onyx Black Niqab & Flowing Black Abaya
       { hijab: '#1c1e24', shade: '#111317', inner: '#2e313b', outfit: '#121317', lapel: '#2b2e38', skin: '#e2b492', glasses: 'niqab', brooch: false },
       // F5: Navy Hijab & White-Rim Sunglasses + Silver Brooch
       { hijab: '#223354', shade: '#16233b', inner: '#dce4f2', outfit: '#192640', lapel: '#324873', skin: '#e6bc9c', glasses: 'white-round', brooch: '#e2e8f0' },
-      // F6: Lavender Chiffon Hijab & Thin Frame Glasses
+      // F6: Lavender Chiffon Hijab & Thin Wire Glasses
       { hijab: '#9b87b5', shade: '#7d6996', inner: '#eee8f5', outfit: '#635378', lapel: '#4d3f5e', skin: '#e8be9e', glasses: 'wire', brooch: false },
       // F7: Caramel Hijab & Dark Sunglasses + Ribbed Cream Coat
       { hijab: '#9e6d43', shade: '#7d5330', inner: '#f2e6da', outfit: '#cbb49c', lapel: '#a89078', skin: '#e5b896', glasses: 'dark-cat', brooch: '#f8fafc' },
-      // F8: Maroon Velvet Hijab + Deep Wine Abaya + Floral Brooch
-      { hijab: '#6e2635', shade: '#521925', inner: '#edd8dc', outfit: '#3d121b', lapel: '#873344', skin: '#dfa984', glasses: 'none', brooch: '#f1f5f9' }
+      // F8: Maroon Velvet Hijab + Deep Wine Abaya + Gold Brooch
+      { hijab: '#6e2635', shade: '#521925', inner: '#edd8dc', outfit: '#3d121b', lapel: '#873344', skin: '#dfa984', glasses: 'none', brooch: '#eab308' }
     ][n];
 
     let svg = `<svg viewBox="0 0 100 100" aria-hidden="true">
       <circle cx="50" cy="50" r="50" fill="${washTint}"/>
       <circle cx="50" cy="50" r="48" fill="${washLight}"/>
-      <!-- Modest Outfit / Blazer / Abaya -->
       <path d="M15 100C17 75 30 67 50 67s33 8 35 33Z" fill="${styles.outfit}"/>`;
 
-    // Blazer lapels for F2 & F7
     if (n === 1 || n === 6) {
       svg += `<path d="M35 68l15 24 15-24" fill="#f5efe8"/>
               <path d="M34 68l10 22-8 4-6-22Zm32 0l-10 22 8 4 6-22Z" fill="${styles.lapel}"/>`;
     }
 
     svg += `
-      <!-- Outer Flowing Hijab Crown -->
       <path d="M25 44c0-18 10-30 25-30s25 12 25 30c0 15-5 28-18 33l-14 2c-13-5-18-18-18-35Z" fill="${styles.hijab}"/>
-      <!-- Soft Undercap Band -->
       <path d="M36 37c0-8 6-13 14-13s14 5 14 13c-3.5-3.5-8-5-14-5s-10.5 1.5-14 5Z" fill="${styles.inner}"/>
-      <!-- Clean Faceless Head -->
       <rect x="37" y="27" width="26" height="33" rx="13" fill="${styles.skin}"/>
-      <!-- Hijab Top Frame -->
       <path d="M35 36c0-9 6.5-14.5 15-14.5s15 5.5 15 14.5c-3.5-4.5-8.5-6.5-15-6.5s-11.5 2-15 6.5Z" fill="${styles.shade}"/>
-      <!-- Asymmetric Layered Hijab Scarf Drape -->
       <path d="M27 52c4 14 17 21 38 19-4 8-13 13-22 13-11 0-18-9-16-32Z" fill="${styles.hijab}"/>
       <path d="M30 58c7 11 19 16 34 14" fill="none" stroke="${styles.shade}" stroke-width="1.8" stroke-linecap="round" opacity="0.65"/>
-      <!-- Hanging Scarf Tail on Left -->
       <path d="M28 66l-3 24h10l2-19Z" fill="${styles.shade}"/>`;
 
     if (styles.glasses === 'niqab') {
       svg += `<path d="M36.5 42h27v6c0 7.5-6 12.5-13.5 12.5S36.5 55.5 36.5 48Z" fill="${styles.hijab}"/>
               <path d="M36.5 42h27" stroke="#3c404d" stroke-width="1.6"/>`;
     } else if (styles.glasses === 'round') {
-      svg += `<g stroke="#2b1e19" stroke-width="1.8" fill="rgba(40,28,22,0.55)">
+      svg += `<g stroke="#2b1e19" stroke-width="1.8" fill="rgba(40,28,22,0.58)">
                 <circle cx="43.5" cy="41" r="4.8"/>
                 <circle cx="56.5" cy="41" r="4.8"/>
                 <line x1="48.3" y1="41" x2="51.7" y2="41"/>
@@ -129,7 +121,7 @@ function avatarArt(gender, variant = 0) {
                 <line x1="48" y1="40.5" x2="52" y2="40.5"/>
               </g>`;
     } else if (styles.glasses === 'dark-cat') {
-      svg += `<g stroke="#1e1916" stroke-width="1.8" fill="rgba(24,20,18,0.75)">
+      svg += `<g stroke="#1e1916" stroke-width="1.8" fill="rgba(24,20,18,0.78)">
                 <rect x="38" y="37.5" width="10" height="6.5" rx="3"/>
                 <rect x="52" y="37.5" width="10" height="6.5" rx="3"/>
                 <line x1="48" y1="40" x2="52" y2="40"/>
@@ -138,7 +130,7 @@ function avatarArt(gender, variant = 0) {
 
     if (styles.brooch) {
       svg += `<g transform="translate(61, 75)">
-                <circle cx="0" cy="0" r="2.6" fill="${styles.brooch}"/>
+                <circle cx="0" cy="0" r="2.7" fill="${styles.brooch}"/>
                 <circle cx="0" cy="0" r="1.1" fill="${styles.shade}"/>
               </g>`;
     }
@@ -146,19 +138,20 @@ function avatarArt(gender, variant = 0) {
     svg += `</svg>`;
     return svg;
   } else {
-    // 8 Brothers Avatars (M1 - M8): Long hair, Long Full Beard, Sunglasses, Turban, Kurta, Jacket, Denim, Hoodie & Short Fade
     const skin = ['#e6b896', '#e2b28e', '#e8be9c', '#dfb08c', '#e5b896', '#e3b490', '#dca782', '#d8a37e'][n];
     const skinShade = ['#d1a07c', '#cc9b76', '#d6aa87', '#c99974', '#d1a07c', '#cf9d78', '#c6906b', '#c28c67'][n];
     const hair = ['#231c18', '#1f1916', '#2b211b', '#241d19', '#1c1817', '#261f1b', '#1e1917', '#211b19'][n];
     const beard = ['#211a16', '#1d1714', '#261d18', '#211a16', '#1a1615', '#231c18', '#1c1715', '#1f1917'][n];
 
-    // M1: Tied Bun / Long Back Hair + Long Full Beard + Caramel Overshirt over White Tee
+    // M1: Top Knot Bun & Long Full Beard + Caramel Overshirt over White Tee
     if (n === 0) {
       return `<svg viewBox="0 0 100 100" aria-hidden="true">
         <circle cx="50" cy="50" r="50" fill="${washTint}"/>
         <circle cx="50" cy="50" r="48" fill="${washLight}"/>
+        <!-- Top Bun Knot -->
+        <circle cx="50" cy="14" r="6.5" fill="${hair}"/>
         <!-- Long Back Hair -->
-        <path d="M33 32c0-11 7-17 17-17s17 6 17 17v22c0 6-4 10-9 10H42c-5 0-9-4-9-10Z" fill="${hair}"/>
+        <path d="M33 32c0-11 7-16 17-16s17 5 17 16v22c0 6-4 10-9 10H42c-5 0-9-4-9-10Z" fill="${hair}"/>
         <!-- White Tee & Caramel Overshirt -->
         <path d="M22 100c2-21 13-29 28-29s26 8 28 29Z" fill="#f8fafc"/>
         <path d="M16 100c2-22 12-31 24-31l7 31H16Zm68 0c-2-22-12-31-24-31l-7 31h31Z" fill="#a87644"/>
@@ -177,18 +170,14 @@ function avatarArt(gender, variant = 0) {
       return `<svg viewBox="0 0 100 100" aria-hidden="true">
         <circle cx="50" cy="50" r="50" fill="${washTint}"/>
         <circle cx="50" cy="50" r="48" fill="${washLight}"/>
-        <!-- Shoulder-length Flowing Hair -->
         <path d="M31 35c0-13 8-20 19-20s19 7 19 20l3 33c0 4-3 6-7 6H35c-4 0-7-2-7-6Z" fill="${hair}"/>
-        <!-- Dark Kurta -->
         <path d="M16 100C18 77 31 69 50 69s32 8 34 31Z" fill="#232730"/>
         <path d="M43 69q7 6 14 0" fill="none" stroke="#475569" stroke-width="2"/>
         <line x1="50" y1="73" x2="50" y2="93" stroke="#475569" stroke-width="1.6"/>
         <rect x="44" y="54" width="12" height="17" rx="6" fill="${skinShade}"/>
         <rect x="36" y="25" width="28" height="35" rx="14" fill="${skin}"/>
-        <!-- Long Beard -->
         <path d="M36 42c0 12 6 20 14 20s14-8 14-20c-3 4.8-8 7-14 7s-11-2.2-14-7Z" fill="${beard}"/>
         <path d="M44 50.5q6-2.5 12 0" fill="none" stroke="${skin}" stroke-width="2" stroke-linecap="round"/>
-        <!-- Center-parted Long Fringe -->
         <path d="M35 36c1-11 7-17 15-17-3 5-5 10-5 15-3-2-7-1-10 2Zm30 0c-1-11-7-17-15-17 3 5 5 10 5 15 3-2 7-1 10 2Z" fill="${hair}"/>
       </svg>`;
     }
@@ -202,10 +191,8 @@ function avatarArt(gender, variant = 0) {
         <path d="M44 69l6 10 6-10" fill="none" stroke="#64748b" stroke-width="1.8"/>
         <rect x="44" y="54" width="12" height="17" rx="6" fill="${skinShade}"/>
         <rect x="36" y="25" width="28" height="35" rx="14" fill="${skin}"/>
-        <!-- Thick Long Beard -->
         <path d="M35 41c0 14 6 24 15 24s15-10 15-24c-3.5 5-8.5 7.5-15 7.5S38.5 46 35 41Z" fill="${beard}"/>
         <path d="M44 50.5q6-2.5 12 0" fill="none" stroke="${skin}" stroke-width="2" stroke-linecap="round"/>
-        <!-- Textured Wavy Hair -->
         <path d="M33 34c-1-11 5-19 17-19 11 0 18 7 16 19-2-5-6-7-11-7-4 0-7 2-11 4-4 2-8 1-11 3Z" fill="${hair}"/>
       </svg>`;
     }
@@ -222,8 +209,7 @@ function avatarArt(gender, variant = 0) {
         <path d="M35.5 41c0 13 6 22 14.5 22s14.5-9 14.5-22c-3 5-8 7.5-14.5 7.5S38.5 46 35.5 41Z" fill="${beard}"/>
         <path d="M44 50.5q6-2.5 12 0" fill="none" stroke="${skin}" stroke-width="2" stroke-linecap="round"/>
         <path d="M35 33c0-10 6-16 15-16s15 6 15 16c-2.5-4.5-7-6.5-15-6.5s-12.5 2-15 6.5Z" fill="${hair}"/>
-        <!-- Brown Aviator Sunglasses -->
-        <g stroke="#241914" stroke-width="1.8" fill="rgba(56,36,26,0.72)">
+        <g stroke="#241914" stroke-width="1.8" fill="rgba(56,36,26,0.74)">
           <rect x="38" y="36.5" width="10.5" height="7" rx="2.5"/>
           <rect x="51.5" y="36.5" width="10.5" height="7" rx="2.5"/>
           <line x1="48.5" y1="39.5" x2="51.5" y2="39.5"/>
@@ -243,7 +229,6 @@ function avatarArt(gender, variant = 0) {
         <path d="M35.5 41c0 13 6 22 14.5 22s14.5-9 14.5-22c-3 5-8 7.5-14.5 7.5S38.5 46 35.5 41Z" fill="${beard}"/>
         <path d="M44 50.5q6-2.5 12 0" fill="none" stroke="${skin}" stroke-width="2" stroke-linecap="round"/>
         <path d="M35 33c0-10.5 6-16.5 15-16.5s15 6 15 16.5c-2.5-4.5-7-6.5-15-6.5s-12.5 2-15 6.5Z" fill="${hair}"/>
-        <!-- Black Wayfarer Sunglasses -->
         <g stroke="#111318" stroke-width="2" fill="#181b22">
           <rect x="37.5" y="36.5" width="11" height="7" rx="2"/>
           <rect x="51.5" y="36.5" width="11" height="7" rx="2"/>
@@ -281,7 +266,6 @@ function avatarArt(gender, variant = 0) {
         <rect x="36" y="27" width="28" height="33" rx="14" fill="${skin}"/>
         <path d="M35.5 42c0 13 6 21 14.5 21s14.5-8 14.5-21c-3 5-8 7.5-14.5 7.5S38.5 47 35.5 42Z" fill="${beard}"/>
         <path d="M44 50.5q6-2.5 12 0" fill="none" stroke="${skin}" stroke-width="2" stroke-linecap="round"/>
-        <!-- Sage Layered Amamah Turban -->
         <path d="M29 33c0-14 9-21 21-21s21 7 21 21c-6.5-4-13.5-5-21-5s-14.5 1-21 5Z" fill="#6b7d6e"/>
         <path d="M30 25c12.5 5 27.5 5 40 0M31 30c12.5-4 25.5-4 38 0" fill="none" stroke="#526155" stroke-width="2" stroke-linecap="round"/>
       </svg>`;
