@@ -111,7 +111,7 @@ function buildInboxList(userId) {
       mood: onlineEntry ? onlineEntry.mood : '',
       lastMessage: lastMsg
         ? {
-            text: lastMsg.spoiler ? '🔒 Spoiler message' : lastMsg.image ? '📷 Photo' : lastMsg.text,
+            text: lastMsg.spoiler ? '🔒 Spoiler message' : lastMsg.audio ? '🎤 Voice message' : lastMsg.image ? '📷 Photo' : lastMsg.text,
             time: lastMsg.time,
             fromMe: lastMsg.from === userId
           }
@@ -478,6 +478,8 @@ io.on('connection', (socket) => {
       name: ctx.me.name,
       text: clip(m.text, 4000),
       image: typeof m.image === 'string' && m.image.startsWith('data:image/') ? m.image : null,
+      audio: typeof m.audio === 'string' && m.audio.startsWith('data:audio/') && m.audio.length < 3_500_000 ? m.audio : null,
+      audioDuration: typeof m.audioDuration === 'number' ? Math.max(1, Math.min(180, Math.round(m.audioDuration))) : null,
       reply: m.reply ? { name: clip(m.reply.name, 24), text: clip(m.reply.text, 120) } : null,
       vanish: !!m.vanish,
       spoiler: !!m.spoiler,
@@ -486,7 +488,7 @@ io.on('connection', (socket) => {
       status: peerOnline ? 'delivered' : 'sent'
     };
 
-    if (!clean.id || (!clean.text.trim() && !clean.image)) return;
+    if (!clean.id || (!clean.text.trim() && !clean.image && !clean.audio)) return;
     if (ctx.conv.history.some((item) => item.id === clean.id)) return cb(clean.status);
 
     ctx.conv.history.push(clean);

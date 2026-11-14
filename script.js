@@ -20,7 +20,7 @@ let gameState = null;
 
 const items = {}; // id -> { m, el, tick, seenSent, vanishTimer }
 
-/* ---------- Minimalist Flat Vector Avatars (Islamic & Modest + Modern Casual) ---------- */
+/* ---------- Minimalist Flat Vector Avatars (Islamic & Modest Faceless Collection) ---------- */
 const AVATAR_NAMES = {
   female: [
     'Olive Hijab',
@@ -28,19 +28,15 @@ const AVATAR_NAMES = {
     'Teal Drape',
     'Classic Black',
     'Navy Modest',
-    'Niqab Pearl',
-    'Hijab & Shades',
-    'Modern Wrap'
+    'Niqab Pearl'
   ],
   male: [
-    'White Kufi',
-    'Classic Thobe',
-    'Smart Blazer',
-    'Red Ghutra',
-    'Olive Panjabi',
-    'White Keffiyeh',
-    'Modern Casual',
-    'Turban Wrap'
+    'White Thobe & Kufi',
+    'Emerald Panjabi',
+    'Red Ghutra & Agal',
+    'Royal Navy Bisht',
+    'Sunnah Amamah',
+    'Olive & Keffiyeh'
   ]
 };
 
@@ -53,145 +49,154 @@ function avatarArt(gender, variant = 0) {
     </svg>`;
   }
 
-  const n = Math.max(0, Math.min(7, Number(variant) || 0));
+  const n = Math.max(0, Math.min(5, Number(variant) || 0));
   const female = gender === 'female';
 
   if (female) {
-    // Soft pastel circular backgrounds
-    const bg = ['#e7efe8', '#f6e6ea', '#e1f0ef', '#e9ebf0', '#e4e8f3', '#efeae4', '#f4ece1', '#ebe6f3'][n];
-    // Hijab / Abaya flat vector tones
-    const hijabMain = ['#5f7863', '#c88294', '#3d7d7a', '#242730', '#2d3f63', '#23262e', '#9c7858', '#6b5a82'][n];
-    const hijabShadow = ['#4c6250', '#b06b7d', '#2e6360', '#181a20', '#202e4a', '#16181e', '#826144', '#554669'][n];
-    const abaya = ['#3a4a3d', '#8c5363', '#275452', '#171920', '#1e2b45', '#15171d', '#5c4738', '#463a57'][n];
-    const skin = ['#e8be9e', '#dfb08c', '#ecc5a7', '#d8a47f', '#e5ba98', '#dfb08c', '#e9c1a2', '#dca984'][n];
+    const bg = ['#e7efe8', '#f6e6ea', '#e1f0ef', '#e9ebf0', '#e4e8f3', '#efeae4'][n];
+    const hijabMain = ['#5f7863', '#c88294', '#3d7d7a', '#242730', '#2d3f63', '#23262e'][n];
+    const hijabShadow = ['#4c6250', '#b06b7d', '#2e6360', '#181a20', '#202e4a', '#16181e'][n];
+    const abaya = ['#3a4a3d', '#8c5363', '#275452', '#171920', '#1e2b45', '#15171d'][n];
+    const skin = ['#e8be9e', '#dfb08c', '#ecc5a7', '#d8a47f', '#e5ba98', '#dfb08c'][n];
 
-    // Variant 7: Casual modern modest wrap / bob silhouette
-    if (n === 7) {
-      return `<svg viewBox="0 0 100 100" aria-hidden="true">
-        <circle cx="50" cy="50" r="50" fill="${bg}"/>
-        <path d="M24 96C24 76 34 68 50 68s26 8 26 28Z" fill="${abaya}"/>
-        <path d="M31 38c0-14 8-22 19-22s19 8 19 22v22c0 6-4 10-9 10H40c-5 0-9-4-9-10Z" fill="#3a303c"/>
-        <rect x="45" y="54" width="10" height="15" rx="5" fill="${skin}"/>
-        <rect x="37" y="29" width="26" height="31" rx="13" fill="${skin}"/>
-        <path d="M34 36c4-9 14-12 29-7-2-8-9-12-16-12-9 0-14 7-13 19Z" fill="#3a303c"/>
-        <path d="M36 69l14 10 14-10" fill="none" stroke="${hijabMain}" stroke-width="4" stroke-linecap="round"/>
-      </svg>`;
-    }
-
-    // Hijab outer & layered abaya shapes
     let svg = `<svg viewBox="0 0 100 100" aria-hidden="true">
       <circle cx="50" cy="50" r="50" fill="${bg}"/>
-      <!-- Modest Abaya Shoulders -->
       <path d="M18 100C19 77 32 69 50 69s31 8 32 31Z" fill="${abaya}"/>
-      <!-- Outer Hijab Silhouette -->
       <path d="M26 46c0-17 10-29 24-29s24 12 24 29c0 17-6 31-24 35-18-4-24-18-24-35Z" fill="${hijabMain}"/>
-      <!-- Layered Hijab Drape Fold -->
       <path d="M28 58c6 12 18 19 36 17-6 8-15 12-23 12-10 0-16-9-13-29Z" fill="${hijabShadow}"/>
-      <!-- Clean Faceless Geometric Head -->
       <rect x="37" y="27" width="26" height="33" rx="13" fill="${skin}"/>
-      <!-- Inner Hijab Cap Frame -->
       <path d="M37 38c0-8 6-13 13-13s13 5 13 13c-3-4-8-6-13-6s-10 2-13 6Z" fill="${hijabShadow}"/>`;
 
-    // Variant 5: Niqab option (clean flat geometric veil across lower face)
     if (n === 5) {
       svg += `<path d="M37 42h26v6c0 7-6 12-13 12s-13-5-13-12Z" fill="${hijabMain}"/>
               <path d="M37 42h26" stroke="${hijabShadow}" stroke-width="1.8"/>`;
     }
 
-    // Variant 6: Hijab with minimalist geometric sunglasses
-    if (n === 6) {
-      svg += `<g fill="#1e2028">
-                <rect x="38" y="38" width="10.5" height="6.5" rx="2.5"/>
-                <rect x="51.5" y="38" width="10.5" height="6.5" rx="2.5"/>
-                <rect x="48" y="39.5" width="4" height="1.8"/>
-              </g>`;
-    }
-
-    // Minimalist lapel / modest V-drape accent
     svg += `<path d="M40 72l10 11 10-11" fill="none" stroke="${hijabMain}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>`;
     return svg;
   } else {
-    // Male Avatars: Soft pastel backgrounds
-    const bg = ['#e4ecf2', '#e8efe9', '#e6e8f2', '#f3eae6', '#e9efe6', '#e5edf0', '#f0ece4', '#e8e6f2'][n];
-    const skin = ['#e5b896', '#d9a47e', '#ecc2a1', '#d49d76', '#e2b38f', '#dba782', '#e7bc9b', '#d7a17b'][n];
-    const beard = ['#2c2528', '#332a2c', '#262124', '#382e30', '#2b2426', '#2f2729', '#3b3134', '#2a2326'][n];
+    // 6 Refined Faceless Islamic Male Avatars (Rich Variety, Clean Flat Vector)
+    const bg = ['#e4edf4', '#e3efe8', '#f5eae6', '#e7e9f5', '#f2ece2', '#e8efe6'][n];
+    const skin = ['#e6b997', '#dca782', '#ecc3a3', '#d6a079', '#e3b490', '#deb08c'][n];
+    const skinShade = ['#d5a582', '#c9936e', '#dbb08e', '#c28b64', '#d1a07c', '#cc9c78'][n];
+    const beard = ['#262022', '#2d2527', '#211c1e', '#2f2729', '#251f21', '#2a2224'][n];
 
-    // Variant 6: Casual modern clean beard & crewneck
-    if (n === 6) {
+    // 0: Classic White Thobe & Embroidered Kufi
+    if (n === 0) {
       return `<svg viewBox="0 0 100 100" aria-hidden="true">
         <circle cx="50" cy="50" r="50" fill="${bg}"/>
-        <path d="M20 100c2-21 14-29 30-29s28 8 30 29Z" fill="#49647a"/>
-        <rect x="44" y="55" width="12" height="17" rx="6" fill="${skin}"/>
+        <!-- Crisp White Thobe -->
+        <path d="M18 100c2-22 14-30 32-30s30 8 32 30Z" fill="#ffffff"/>
+        <path d="M43 70h14v24H43Z" fill="#f1f5f9"/>
+        <line x1="50" y1="70" x2="50" y2="94" stroke="#cbd5e1" stroke-width="2"/>
+        <circle cx="50" cy="77" r="1.4" fill="#94a3b8"/>
+        <circle cx="50" cy="84" r="1.4" fill="#94a3b8"/>
+        <!-- Neck & Faceless Head -->
+        <rect x="44" y="55" width="12" height="16" rx="6" fill="${skinShade}"/>
         <rect x="36" y="25" width="28" height="35" rx="14" fill="${skin}"/>
-        <path d="M36 35c0-10 6-15 14-15s14 5 14 15c-2-5-7-7-14-7s-12 2-14 7Z" fill="${beard}"/>
-        <path d="M36 44c0 10 6 16 14 16s14-6 14-16c-3 5-8 7-14 7s-11-2-14-7Z" fill="${beard}"/>
-        <path d="M42 71q8 6 16 0" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+        <!-- Full Neat Beard -->
+        <path d="M36 43c0 11 6 17 14 17s14-6 14-17c-3 5-8 7-14 7s-11-2-14-7Z" fill="${beard}"/>
+        <!-- White Prayer Kufi with Subtle Geometric Band -->
+        <path d="M36 31c0-9 6-14 14-14s14 5 14 14Z" fill="#ffffff"/>
+        <rect x="36" y="28" width="28" height="3.5" fill="#e2e8f0"/>
+        <path d="M38 29.8h24" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="2 2"/>
       </svg>`;
     }
 
-    // Variant 7: Modest Turban / Headwrap & Beard
-    if (n === 7) {
+    // 1: Emerald Green Panjabi & Gold-Trimmed Kufi
+    if (n === 1) {
       return `<svg viewBox="0 0 100 100" aria-hidden="true">
         <circle cx="50" cy="50" r="50" fill="${bg}"/>
-        <path d="M20 100c2-21 14-29 30-29s28 8 30 29Z" fill="#3c3752"/>
-        <rect x="44" y="55" width="12" height="17" rx="6" fill="${skin}"/>
-        <rect x="36" y="26" width="28" height="34" rx="14" fill="${skin}"/>
-        <path d="M36 44c0 10 6 16 14 16s14-6 14-16c-3 5-8 7-14 7s-11-2-14-7Z" fill="${beard}"/>
-        <path d="M32 32c0-12 8-19 18-19s18 7 18 19c-6-4-12-5-18-5s-12 1-18 5Z" fill="#685a8a"/>
-        <path d="M33 27l34 5M33 32l34-5" stroke="#534670" stroke-width="2.2" stroke-linecap="round"/>
+        <!-- Emerald Panjabi -->
+        <path d="M18 100c2-22 14-30 32-30s30 8 32 30Z" fill="#235c47"/>
+        <!-- Golden Placket Embroidery -->
+        <path d="M44 70h12v23H44Z" fill="#1b4737"/>
+        <path d="M44 70v23M56 70v23M50 70v23" stroke="#d4af37" stroke-width="1.4"/>
+        <path d="M42 70q8 6 16 0" fill="none" stroke="#d4af37" stroke-width="2.2" stroke-linecap="round"/>
+        <!-- Neck & Faceless Head -->
+        <rect x="44" y="55" width="12" height="16" rx="6" fill="${skinShade}"/>
+        <rect x="36" y="25" width="28" height="35" rx="14" fill="${skin}"/>
+        <!-- Full Neat Beard -->
+        <path d="M36 43c0 11 6 17 14 17s14-6 14-17c-3 5-8 7-14 7s-11-2-14-7Z" fill="${beard}"/>
+        <!-- Emerald & Gold Kufi -->
+        <path d="M36 31c0-9 6-14 14-14s14 5 14 14Z" fill="#1b4737"/>
+        <rect x="36" y="28" width="28" height="3" fill="#d4af37"/>
       </svg>`;
     }
 
-    // Variants 3 & 5: Keffiyeh / Ghutra styles
-    if (n === 3 || n === 5) {
-      const cloth = n === 3 ? '#ffffff' : '#f7f8fa';
-      const pattern = n === 3 ? '#c84b55' : '#4a5568';
-      const robe = n === 3 ? '#2c3545' : '#f1f5f9';
+    // 2: Traditional Red & White Shemagh / Ghutra with Black Agal
+    if (n === 2) {
       return `<svg viewBox="0 0 100 100" aria-hidden="true">
         <circle cx="50" cy="50" r="50" fill="${bg}"/>
-        <path d="M18 100c2-22 14-30 32-30s30 8 32 30Z" fill="${robe}"/>
-        <!-- Ghutra / Keffiyeh Drape -->
-        <path d="M28 40c0-15 9-24 22-24s22 9 22 24l4 42H24Z" fill="${cloth}"/>
-        <path d="M29 32h42M28 38h44" stroke="${pattern}" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.65"/>
+        <!-- Dark Slate Thobe Underlay -->
+        <path d="M18 100c2-22 14-30 32-30s30 8 32 30Z" fill="#28303d"/>
+        <!-- Flowing Red-Patterned Ghutra -->
+        <path d="M26 42c0-16 10-26 24-26s24 10 24 26l5 44H21Z" fill="#ffffff"/>
+        <path d="M27 33h46M25 40h50M23 48h54" stroke="#c53030" stroke-width="1.6" stroke-dasharray="3 3" opacity="0.72"/>
+        <!-- Faceless Head -->
         <rect x="37" y="28" width="26" height="32" rx="13" fill="${skin}"/>
         <path d="M37 45c0 9 6 15 13 15s13-6 13-15c-3 4-7 6-13 6s-10-2-13-6Z" fill="${beard}"/>
-        <!-- Black Agal Cord -->
-        <rect x="33" y="22" width="34" height="4.5" rx="2.2" fill="#1e2028"/>
+        <!-- Double Black Agal Cord -->
+        <rect x="32" y="21" width="36" height="3.2" rx="1.6" fill="#18191f"/>
+        <rect x="32" y="25" width="36" height="3.2" rx="1.6" fill="#18191f"/>
       </svg>`;
     }
 
-    // Variants 0, 1, 2, 4: White Kufi / Prayer Cap + Thobe / Panjabi / Smart Blazer
-    const outfit = ['#ffffff', '#4a6b5d', '#2b364d', '', '#5c7260'][n];
-    const collarAccent = ['#cbd5e1', '#d4af37', '#ffffff', '', '#dce6dd'][n];
-    const capColor = n === 2 ? '#2b364d' : '#ffffff';
-    const capBorder = n === 2 ? '#1e2638' : '#cbd5e1';
-
-    let svg = `<svg viewBox="0 0 100 100" aria-hidden="true">
-      <circle cx="50" cy="50" r="50" fill="${bg}"/>
-      <!-- Thobe / Panjabi / Blazer Shoulders -->
-      <path d="M19 100c2-21 14-29 31-29s29 8 31 29Z" fill="${outfit}"/>
-      <rect x="44" y="55" width="12" height="17" rx="6" fill="${skin}"/>
-      <!-- Faceless Portrait Head -->
-      <rect x="36" y="26" width="28" height="34" rx="14" fill="${skin}"/>
-      <!-- Neat Beard -->
-      <path d="M36 44c0 10 6 16 14 16s14-6 14-16c-3 5-8 7-14 7s-11-2-14-7Z" fill="${beard}"/>
-      <!-- Kufi / Prayer Cap -->
-      <path d="M36 31c0-9 6-14 14-14s14 5 14 14Z" fill="${capColor}"/>
-      <line x1="36" y1="31" x2="64" y2="31" stroke="${capBorder}" stroke-width="2"/>`;
-
-    if (n === 2) {
-      // Smart Blazer Lapels + Crisp Shirt
-      svg += `<path d="M43 71l7 14 7-14Z" fill="#ffffff"/>
-              <path d="M39 71l11 19 11-19" fill="none" stroke="#1b2333" stroke-width="3" stroke-linejoin="round"/>`;
-    } else {
-      // Panjabi / Thobe Mandarin Collar & Placket
-      svg += `<line x1="50" y1="71" x2="50" y2="91" stroke="${collarAccent}" stroke-width="2.5" stroke-linecap="round"/>
-              <path d="M43 71q7 5 14 0" fill="none" stroke="${collarAccent}" stroke-width="2.5" stroke-linecap="round"/>`;
+    // 3: Royal Navy Bisht Cloak with Gold Trim & White Kufi
+    if (n === 3) {
+      return `<svg viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="50" fill="${bg}"/>
+        <!-- Inner Cream Thobe -->
+        <path d="M22 100c2-21 13-29 28-29s26 8 28 29Z" fill="#f8fafc"/>
+        <!-- Royal Navy Bisht Outer Cloak -->
+        <path d="M17 100c2-22 12-30 25-30l8 30H17Zm66 0c-2-22-12-30-25-30l-8 30h33Z" fill="#1e293b"/>
+        <!-- Gold Zari Bisht Borders -->
+        <path d="M42 70l8 30M58 70l-8 30" stroke="#eab308" stroke-width="2.4"/>
+        <!-- Neck & Faceless Head -->
+        <rect x="44" y="55" width="12" height="16" rx="6" fill="${skinShade}"/>
+        <rect x="36" y="25" width="28" height="35" rx="14" fill="${skin}"/>
+        <path d="M36 43c0 11 6 17 14 17s14-6 14-17c-3 5-8 7-14 7s-11-2-14-7Z" fill="${beard}"/>
+        <!-- Crisp White Kufi -->
+        <path d="M36 31c0-9 6-14 14-14s14 5 14 14Z" fill="#ffffff"/>
+        <line x1="36" y1="31" x2="64" y2="31" stroke="#cbd5e1" stroke-width="2"/>
+      </svg>`;
     }
 
-    svg += `</svg>`;
-    return svg;
+    // 4: Sunnah Amamah (Wrapped Turban) & Warm Sand Jubbah
+    if (n === 4) {
+      return `<svg viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="50" fill="${bg}"/>
+        <!-- Warm Sand / Cream Jubbah -->
+        <path d="M18 100c2-22 14-30 32-30s30 8 32 30Z" fill="#7c5e42"/>
+        <path d="M43 70q7 7 14 0" fill="none" stroke="#f5ebe0" stroke-width="2.5" stroke-linecap="round"/>
+        <line x1="50" y1="73" x2="50" y2="93" stroke="#f5ebe0" stroke-width="2"/>
+        <!-- Neck & Faceless Head -->
+        <rect x="44" y="55" width="12" height="16" rx="6" fill="${skinShade}"/>
+        <rect x="36" y="27" width="28" height="33" rx="14" fill="${skin}"/>
+        <path d="M36 44c0 10 6 16 14 16s14-6 14-16c-3 5-8 7-14 7s-11-2-14-7Z" fill="${beard}"/>
+        <!-- Layered Wrapped Turban (Amamah) -->
+        <path d="M30 32c0-13 9-20 20-20s20 7 20 20c-6-4-13-5-20-5s-14 1-20 5Z" fill="#f8f5f0"/>
+        <path d="M31 25c12 5 26 5 38 0M32 30c12-4 24-4 36 0" fill="none" stroke="#d6ccc2" stroke-width="2" stroke-linecap="round"/>
+      </svg>`;
+    }
+
+    // 5: Olive Panjabi with Draped Palestinian Keffiyeh Scarf & Kufi
+    return `<svg viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="50" fill="${bg}"/>
+      <!-- Deep Olive Panjabi -->
+      <path d="M18 100c2-22 14-30 32-30s30 8 32 30Z" fill="#3f5243"/>
+      <!-- Draped Black & White Keffiyeh Scarf -->
+      <path d="M35 70l7 30h-8l-5-26Zm30 0l-7 30h8l5-26Z" fill="#ffffff"/>
+      <path d="M33 76h6M34 83h6M35 90h6M61 76h6M60 83h6M59 90h6" stroke="#1e2028" stroke-width="1.6" stroke-dasharray="2 2"/>
+      <!-- Neck & Faceless Head -->
+      <rect x="44" y="55" width="12" height="16" rx="6" fill="${skinShade}"/>
+      <rect x="36" y="25" width="28" height="35" rx="14" fill="${skin}"/>
+      <path d="M36 43c0 11 6 17 14 17s14-6 14-17c-3 5-8 7-14 7s-11-2-14-7Z" fill="${beard}"/>
+      <!-- Charcoal & White Kufi -->
+      <path d="M36 31c0-9 6-14 14-14s14 5 14 14Z" fill="#2c3531"/>
+      <rect x="36" y="28" width="28" height="3" fill="#cbd5e1"/>
+    </svg>`;
   }
 }
 
@@ -880,6 +885,10 @@ function render(m) {
     d.append(i);
   }
 
+  if (m.audio) {
+    d.append(buildVoicePlayer(m.audio, m.audioDuration || 0));
+  }
+
   if (m.text) d.append(el('div', 'txt', m.text));
 
   const meta = el('div', 'meta');
@@ -893,7 +902,7 @@ function render(m) {
   rb.title = 'Reply';
   rb.onclick = (e) => {
     e.stopPropagation();
-    setReply({ name: m.name, text: m.spoiler ? '🔒 Spoiler message' : m.text || '📷 Photo' });
+    setReply({ name: m.name, text: m.spoiler ? '🔒 Spoiler message' : m.audio ? '🎤 Voice message' : m.text || '📷 Photo' });
   };
   meta.append(rb);
   if (m.edited) meta.append(el('span', 'edited-label', 'edited'));
@@ -1086,7 +1095,7 @@ socket.on('msg', (m) => {
 
   updateSidebarPreview(
     peerId,
-    m.spoiler ? '🔒 Spoiler message' : m.image ? '📷 Photo' : m.text,
+    m.spoiler ? '🔒 Spoiler message' : m.audio ? '🎤 Voice message' : m.image ? '📷 Photo' : m.text,
     m.time,
     m.from === cid,
     !isCurrentChat && m.from !== cid
@@ -1098,7 +1107,7 @@ socket.on('msg', (m) => {
     markSeen();
   } else if (m.from !== cid) {
     beep(880);
-    showToast(`💬 ${m.name}: ${m.spoiler ? 'Spoiler message' : m.image ? 'Sent a photo' : m.text.slice(0, 40)}`);
+    showToast(`💬 ${m.name}: ${m.spoiler ? 'Spoiler message' : m.audio ? 'Sent a voice message' : m.image ? 'Sent a photo' : m.text.slice(0, 40)}`);
   }
 });
 
@@ -1125,6 +1134,203 @@ function markSeen() {
 }
 addEventListener('focus', markSeen);
 document.addEventListener('visibilitychange', markSeen);
+
+/* ---------- Voice Note Recorder & Custom Waveform Audio Player ---------- */
+function fmtDuration(sec) {
+  const s = Math.max(0, Math.round(sec || 0));
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return `${m}:${rem < 10 ? '0' : ''}${rem}`;
+}
+
+function buildVoicePlayer(audioSrc, initialDuration) {
+  const wrap = el('div', 'voice-note-player');
+  const playBtn = el('button', 'voice-play-btn', '▶');
+  playBtn.type = 'button';
+  playBtn.title = 'Play voice note';
+
+  const waveWrap = el('div', 'voice-wave-wrap');
+  const barsRow = el('div', 'voice-bars');
+  const heights = [38, 65, 92, 54, 80, 100, 46, 74, 88, 60, 95, 50, 72, 85, 42, 68, 90, 56, 76, 48];
+  const barEls = heights.map((h) => {
+    const bar = document.createElement('i');
+    bar.style.height = `${h}%`;
+    barsRow.append(bar);
+    return bar;
+  });
+
+  const metaRow = el('div', 'voice-meta-row');
+  const timeLbl = el('span', '', fmtDuration(initialDuration));
+  const tagLbl = el('span', '', '🎤 Voice');
+  metaRow.append(timeLbl, tagLbl);
+
+  waveWrap.append(barsRow, metaRow);
+  wrap.append(playBtn, waveWrap);
+
+  const audioObj = new Audio(audioSrc);
+  audioObj.preload = 'metadata';
+
+  audioObj.addEventListener('loadedmetadata', () => {
+    if (isFinite(audioObj.duration) && audioObj.duration > 0) {
+      timeLbl.textContent = fmtDuration(audioObj.duration);
+    }
+  });
+
+  audioObj.addEventListener('timeupdate', () => {
+    const dur = isFinite(audioObj.duration) && audioObj.duration > 0 ? audioObj.duration : initialDuration || 1;
+    const ratio = Math.min(1, audioObj.currentTime / dur);
+    const activeCount = Math.round(ratio * barEls.length);
+    barEls.forEach((b, idx) => b.classList.toggle('played', idx < activeCount));
+    timeLbl.textContent = fmtDuration(audioObj.currentTime);
+  });
+
+  audioObj.addEventListener('ended', () => {
+    playBtn.textContent = '▶';
+    barEls.forEach((b) => b.classList.remove('played'));
+    const dur = isFinite(audioObj.duration) && audioObj.duration > 0 ? audioObj.duration : initialDuration;
+    timeLbl.textContent = fmtDuration(dur);
+  });
+
+  barsRow.onclick = (e) => {
+    e.stopPropagation();
+    const rect = barsRow.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    if (isFinite(audioObj.duration) && audioObj.duration > 0) {
+      audioObj.currentTime = pct * audioObj.duration;
+    }
+  };
+
+  playBtn.onclick = (e) => {
+    e.stopPropagation();
+    if (audioObj.paused) {
+      document.querySelectorAll('audio').forEach((a) => a.pause());
+      audioObj.play().then(() => {
+        playBtn.textContent = '⏸';
+      }).catch(() => showToast('Could not play voice message.'));
+    } else {
+      audioObj.pause();
+      playBtn.textContent = '▶';
+    }
+  };
+
+  return wrap;
+}
+
+function sendVoiceNote(audioDataUrl, durationSec) {
+  if (!activePeer || !socket.connected) return showToast('Select an online partner or wait to reconnect.');
+  const now = Date.now();
+  const m = {
+    id: cid.slice(0, 6) + rnd(),
+    to: activePeer.id,
+    text: '',
+    image: null,
+    audio: audioDataUrl,
+    audioDuration: Math.max(1, Math.round(durationSec)),
+    reply: replyTo,
+    vanish: vanishMode,
+    spoiler: spoilerMode
+  };
+
+  render({ ...m, from: cid, name: currentAccount.name, time: now, status: 'sending' });
+  updateSidebarPreview(activePeer.id, spoilerMode ? '🔒 Spoiler message' : '🎤 Voice message', now, true, false);
+
+  socket.emit('msg', m, (status) => {
+    if (status && status.error) return showToast(status.error);
+    setStatus(m.id, status);
+  });
+  setReply(null);
+}
+
+let mediaRecorder = null;
+let voiceChunks = [];
+let voiceStream = null;
+let voiceStartTime = 0;
+let voiceTimerInterval = null;
+let voiceShouldSend = false;
+
+function stopVoiceUI() {
+  clearInterval(voiceTimerInterval);
+  $('voiceRecBar').classList.add('hidden');
+  $('voiceBtn').classList.remove('active');
+  if (voiceStream) {
+    voiceStream.getTracks().forEach((t) => t.stop());
+    voiceStream = null;
+  }
+}
+
+$('voiceBtn').onclick = async () => {
+  if (!activePeer || !socket.connected) return showToast('Open a chat first to send a voice note.');
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    voiceShouldSend = true;
+    mediaRecorder.stop();
+    return;
+  }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    return showToast('Microphone is not supported in this browser.');
+  }
+  try {
+    voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    voiceChunks = [];
+    voiceShouldSend = false;
+    mediaRecorder = new MediaRecorder(voiceStream);
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) voiceChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = () => {
+      const durationSec = (Date.now() - voiceStartTime) / 1000;
+      const shouldSend = voiceShouldSend;
+      const mimeType = mediaRecorder.mimeType || 'audio/webm';
+      stopVoiceUI();
+      if (!shouldSend || !voiceChunks.length) return;
+      if (durationSec < 0.6) return showToast('Voice note too short.');
+
+      const blob = new Blob(voiceChunks, { type: mimeType });
+      if (blob.size > 2.4 * 1024 * 1024) {
+        return showToast('Voice note is too long (max ~60 seconds).');
+      }
+      const reader = new FileReader();
+      reader.onload = () => sendVoiceNote(reader.result, durationSec);
+      reader.readAsDataURL(blob);
+    };
+
+    voiceStartTime = Date.now();
+    $('voiceRecTimer').textContent = '0:00';
+    $('voiceRecBar').classList.remove('hidden');
+    $('voiceBtn').classList.add('active');
+
+    voiceTimerInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - voiceStartTime) / 1000);
+      $('voiceRecTimer').textContent = fmtDuration(elapsed);
+      if (elapsed >= 60 && mediaRecorder && mediaRecorder.state === 'recording') {
+        voiceShouldSend = true;
+        mediaRecorder.stop();
+      }
+    }, 300);
+
+    mediaRecorder.start();
+  } catch (err) {
+    stopVoiceUI();
+    showToast('Microphone permission denied.');
+  }
+};
+
+$('cancelVoiceBtn').onclick = () => {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    voiceShouldSend = false;
+    mediaRecorder.stop();
+  } else {
+    stopVoiceUI();
+  }
+};
+
+$('sendVoiceBtn').onclick = () => {
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    voiceShouldSend = true;
+    mediaRecorder.stop();
+  }
+};
 
 /* ---------- Reply, Emoji & Image Upload ---------- */
 function setReply(r) {
@@ -1433,7 +1639,7 @@ $('activeRoomCodeBadge').onclick = () => {
 
 function renderAvatarGallery() {
   $('avatarGallery').replaceChildren();
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 6; i++) {
     const button = el('button', 'avatar-option');
     button.type = 'button';
     button.innerHTML = avatarArt(selectedGender, i);
@@ -1475,9 +1681,18 @@ function setAuthMode(mode) {
   $('accountName').required = showProfile;
   $('joinRoomCodeInput').required = mode === 'room' && roomSubMode === 'join';
 
-  $('loginTab').classList.toggle('primary-action', mode === 'login');
-  $('registerTab').classList.toggle('primary-action', mode === 'register');
+  // Top tabs highlight: Sign in (active for both login & register) vs Chat Room
+  $('loginTab').classList.toggle('primary-action', isAccount);
   $('roomTab').classList.toggle('primary-action', mode === 'room');
+
+  // Bottom Facebook-style toggle footer
+  if (mode === 'register') {
+    $('authSwitchPrompt').textContent = 'Already have an account?';
+    $('registerTab').textContent = 'Sign in to account';
+  } else {
+    $('authSwitchPrompt').textContent = "Don't have an account?";
+    $('registerTab').textContent = 'Create new account';
+  }
 
   if (mode === 'login') {
     $('authSubmit').textContent = 'Sign in';
@@ -1596,7 +1811,7 @@ function enterApp(user) {
 }
 
 $('loginTab').onclick = () => setAuthMode('login');
-$('registerTab').onclick = () => setAuthMode('register');
+$('registerTab').onclick = () => setAuthMode(authMode === 'register' ? 'login' : 'register');
 $('roomTab').onclick = () => setAuthMode('room');
 $('createRoomSubTab').onclick = () => setRoomSubMode('create');
 $('joinRoomSubTab').onclick = () => setRoomSubMode('join');

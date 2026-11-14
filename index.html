@@ -21,10 +21,9 @@
       <h1>DuoChat</h1>
       <p id="authDescription">Private conversations, instant rooms & mini-games.</p>
 
-      <!-- Main Mode Tabs: Sign in | Create account | Chat Room -->
+      <!-- Top Mode Tabs: Sign in | Chat Room -->
       <div class="auth-tabs primary-mode-tabs">
         <button type="button" id="loginTab" class="game-action primary-action">Sign in</button>
-        <button type="button" id="registerTab" class="game-action">Create account</button>
         <button type="button" id="roomTab" class="game-action">Chat Room</button>
       </div>
 
@@ -69,6 +68,13 @@
 
       <button id="authSubmit" class="primary btn-glow" type="submit">Sign in</button>
       <div id="authError" class="err" role="alert"></div>
+
+      <!-- Facebook-style bottom Create Account / Sign In switch -->
+      <div id="authSwitchFooter" class="auth-switch-footer">
+        <div class="auth-divider"><span>or</span></div>
+        <p id="authSwitchPrompt" class="auth-switch-text">Don't have an account?</p>
+        <button type="button" id="registerTab" class="create-account-btn">Create new account</button>
+      </div>
       <div class="dev-trigger-wrap">
         <button type="button" id="devInfoBtn" class="dev-pill-trigger">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
@@ -321,6 +327,18 @@
             <span id="spoilerTag" class="mode-pill hidden">👁️‍🗨️ Spoiler Blur ON</span>
           </div>
 
+          <!-- Voice Note Recording Bar -->
+          <div id="voiceRecBar" class="voice-rec-bar hidden">
+            <div class="voice-rec-status">
+              <span class="rec-dot"></span>
+              <span>Recording voice… <b id="voiceRecTimer">0:00</b></span>
+            </div>
+            <div class="voice-rec-actions">
+              <button type="button" id="cancelVoiceBtn" class="mini-pill-btn decline" title="Cancel recording">Cancel</button>
+              <button type="button" id="sendVoiceBtn" class="mini-pill-btn solid" title="Send voice note">Send ↗</button>
+            </div>
+          </div>
+
           <!-- Footer Input Bar -->
           <footer>
             <button id="gamesBtn" class="tool-btn" title="Play DuoPlay Mini-Games">
@@ -345,6 +363,10 @@
             </button>
 
             <textarea id="input" rows="1" placeholder="Message…"></textarea>
+
+            <button type="button" id="voiceBtn" class="tool-btn" title="Send Voice Message">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+            </button>
 
             <button id="send" class="primary send-btn" title="Send Message">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
