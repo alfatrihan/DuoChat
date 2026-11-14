@@ -1,320 +1,246 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DuoChat — Messenger & Real-Time Mini-Games</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>DuoChat v4 — Play, Chat & Connect</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
 </head>
-<body class="theme-night">
-  <!-- Ambient Dynamic Sky Background -->
-  <div class="sky-backdrop">
-    <div class="ambient-orb orb-1"></div>
-    <div class="ambient-orb orb-2"></div>
-  </div>
-
-  <!-- Toast Notification Container -->
-  <div id="toastContainer" class="toast-container"></div>
-
-  <!-- ==========================================
-       1. AUTHENTICATION SCREEN (LOGIN / REGISTER)
-       ========================================== -->
-  <section id="authScreen" class="auth-screen">
-    <div class="auth-card glass-panel">
-      <div class="auth-brand">
-        <div class="brand-logo">
-          <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect width="36" height="36" rx="11" fill="url(#brandGrad)"/>
-            <path d="M10 14C10 11.2386 12.2386 9 15 9H21C23.7614 9 26 11.2386 26 14V18C26 20.7614 23.7614 23 21 23H17.5L13 26.5V23H15C12.2386 23 10 20.7614 10 18V14Z" fill="white"/>
-            <circle cx="15.5" cy="16" r="1.6" fill="#0f766e"/>
-            <circle cx="20.5" cy="16" r="1.6" fill="#0f766e"/>
-            <defs>
-              <linearGradient id="brandGrad" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#10b981"/>
-                <stop offset="1" stop-color="#0f766e"/>
-              </linearGradient>
-            </defs>
-          </svg>
-        </div>
-        <div>
-          <h1>DuoChat</h1>
-          <p>Private Friend Messenger & Real-Time Mini-Games</p>
-        </div>
+<body>
+  <section id="auth" class="screen">
+    <form id="authForm" class="card glass">
+      <h1>DuoChat</h1><p id="authDescription">Your private space starts here.</p>
+      <div class="auth-tabs"><button type="button" id="loginTab" class="game-action primary-action">Sign in</button><button type="button" id="registerTab" class="game-action">Create account</button></div>
+      <input id="username" placeholder="Username" minlength="3" maxlength="24" pattern="[A-Za-z0-9_]{3,24}" required autocomplete="username">
+      <input id="password" type="password" placeholder="Password (8+ characters)" minlength="8" maxlength="128" required autocomplete="current-password">
+      <div id="registerFields" class="hidden"><input id="accountName" placeholder="Display name" maxlength="24" autocomplete="nickname">
+        <div class="auth-tabs"><button type="button" class="game-action" id="maleAvatars">Male</button><button type="button" class="game-action" id="femaleAvatars">Female</button></div>
+        <p class="avatar-help">Choose your look</p><div id="avatarGallery" class="avatar-gallery"></div>
+      </div>
+      <button id="authSubmit" class="primary" type="submit">Sign in</button><div id="authError" class="err" role="alert"></div>
+    </form>
+  </section>
+  <!-- Join Screen -->
+  <section id="join" class="screen hidden">
+    <form id="joinForm" class="card glass">
+      <div class="logo-wrap">
+        <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+        </svg>
+      </div>
+      <h1>DuoChat</h1>
+      <p>A private space for two. Chat, play and share little moments together.</p>
+      
+      <div class="input-group">
+        <span class="input-icon">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </span>
+        <input id="name" placeholder="Your display name" maxlength="24" required autocomplete="off">
       </div>
 
-      <div class="auth-tabs">
-        <button type="button" class="auth-tab active" data-tab="login">Sign In</button>
-        <button type="button" class="auth-tab" data-tab="register">Create Account</button>
+      <div class="input-group">
+        <span class="input-icon">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </span>
+        <input id="room" type="password" placeholder="Secret room passkey" minlength="4" required autocomplete="off">
+        <button type="button" id="genRoomBtn" class="icon-mini" title="Generate random passkey">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+        </button>
       </div>
 
-      <!-- LOGIN FORM -->
-      <form id="loginForm" class="auth-form">
-        <div class="field-group">
-          <label for="loginUsername">Username</label>
-          <div class="input-with-prefix">
-            <span>@</span>
-            <input type="text" id="loginUsername" placeholder="your_username" required autocomplete="username" />
-          </div>
-        </div>
-        <div class="field-group">
-          <label for="loginPassword">Password</label>
-          <input type="password" id="loginPassword" placeholder="Enter your password" required autocomplete="current-password" />
-        </div>
-        <button type="submit" class="primary-btn full-width">Sign In to Messenger</button>
-      </form>
 
-      <!-- REGISTER FORM -->
-      <form id="registerForm" class="auth-form hidden">
-        <div class="form-row-2">
-          <div class="field-group">
-            <label for="regUsername">Unique Username</label>
-            <div class="input-with-prefix">
-              <span>@</span>
-              <input type="text" id="regUsername" placeholder="e.g. alfat_rihan" required pattern="[a-zA-Z0-9_]{3,20}" />
-            </div>
-          </div>
-          <div class="field-group">
-            <label for="regDisplayName">Display Name</label>
-            <input type="text" id="regDisplayName" placeholder="e.g. Alfat Rihan" required maxlength="28" />
-          </div>
-        </div>
-
-        <div class="form-row-2">
-          <div class="field-group">
-            <label for="regPassword">Password</label>
-            <input type="password" id="regPassword" placeholder="Min. 4 characters" required minlength="4" />
-          </div>
-          <div class="field-group">
-            <label>Gender & Avatar Filter</label>
-            <div class="gender-pills" id="regGenderPills">
-              <button type="button" class="gender-pill active" data-gender="male">Brother (Male)</button>
-              <button type="button" class="gender-pill" data-gender="female">Sister (Female)</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="field-group">
-          <div class="avatar-header-row">
-            <label>Choose Your Smart Avatar</label>
-            <span class="avatar-badge-hint">Modest Islamic & Casual Options</span>
-          </div>
-          <div id="regAvatarGrid" class="avatar-picker-grid"></div>
-        </div>
-
-        <button type="submit" class="primary-btn full-width">Create Account & Start Chatting</button>
-      </form>
-    </div>
+      <button class="primary btn-glow" type="submit">
+        <span>Enter Private Room</span>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </button>
+      <button type="button" id="logoutBtn" class="game-action">Sign out</button><div id="err" class="err"></div>
+    </form>
   </section>
 
-  <!-- ==========================================
-       2. MAIN MESSENGER DASHBOARD
-       ========================================== -->
-  <main id="messengerApp" class="messenger-layout hidden">
-    <!-- LEFT SIDEBAR: INBOX, FRIEND SEARCH & REQUESTS -->
-    <aside id="sidebarPanel" class="sidebar-panel glass-panel">
-      <!-- Current User Profile Bar -->
-      <header class="sidebar-header">
-        <div class="my-profile-chip" id="openProfileModalBtn" title="Click to customize profile & avatar">
-          <div id="myAvatarBox" class="avatar-circle md"></div>
-          <div class="my-profile-text">
-            <div class="name-row">
-              <span id="myDisplayName">User</span>
-              <span class="status-dot online"></span>
-            </div>
-            <span id="myUsernameHandle" class="handle-sub">@username</span>
-          </div>
-        </div>
-        <div class="sidebar-actions">
-          <button type="button" id="themeToggleBtn" class="icon-btn" title="Switch Sky Theme">🌓</button>
-          <button type="button" id="soundToggleBtn" class="icon-btn" title="Toggle Sound Effects">🔊</button>
-          <button type="button" id="logoutBtn" class="icon-btn danger" title="Log Out">⏻</button>
-        </div>
-      </header>
+  <!-- Chat Screen -->
+  <section id="chat" class="screen hidden">
+    <!-- Live Weather Canvas Overlay (Synced between both users) -->
+    <canvas id="weatherCanvas"></canvas>
 
-      <!-- Global Friend Search Bar -->
-      <div class="search-box-wrap">
-        <div class="search-input-shell">
-          <span class="search-icon">🔍</span>
-          <input type="text" id="userSearchInput" placeholder="Search username to send friend request..." autocomplete="off" />
-          <button type="button" id="clearSearchBtn" class="clear-search-btn hidden">✕</button>
-        </div>
-      </div>
-
-      <!-- Navigation Tabs: Inbox vs Requests vs Find Friends -->
-      <nav class="sidebar-nav-tabs">
-        <button type="button" class="nav-tab active" data-view="chats">
-          <span>💬 Chats</span>
-          <span id="unreadTotalBadge" class="pill-badge hidden">0</span>
-        </button>
-        <button type="button" class="nav-tab" data-view="requests">
-          <span>🤝 Requests</span>
-          <span id="requestsCountBadge" class="pill-badge accent hidden">0</span>
-        </button>
-        <button type="button" class="nav-tab" data-view="search">
-          <span>🌐 Find</span>
-        </button>
-      </nav>
-
-      <!-- VIEW 1: CONVERSATION INBOX LIST -->
-      <div id="chatsView" class="sidebar-list-view">
-        <div id="friendsInboxList" class="inbox-list"></div>
-      </div>
-
-      <!-- VIEW 2: FRIEND REQUESTS (INCOMING & OUTGOING) -->
-      <div id="requestsView" class="sidebar-list-view hidden">
-        <div class="sub-section-title">Incoming Requests</div>
-        <div id="incomingRequestsList" class="requests-list"></div>
-        <div class="sub-section-title">Sent Requests</div>
-        <div id="outgoingRequestsList" class="requests-list"></div>
-      </div>
-
-      <!-- VIEW 3: SEARCH RESULTS -->
-      <div id="searchView" class="sidebar-list-view hidden">
-        <div class="sub-section-title">Search Directory by @username</div>
-        <div id="searchResultsList" class="requests-list">
-          <div class="empty-state-small">Type a username above to find and add friends.</div>
-        </div>
-      </div>
-    </aside>
-
-    <!-- RIGHT WORKSPACE: ACTIVE CONVERSATION & MINI-GAMES -->
-    <section class="chat-workspace glass-panel">
-      <!-- Empty Welcome Placeholder (When no chat is selected) -->
-      <div id="noChatSelected" class="empty-chat-placeholder">
-        <div class="empty-illustration">🕌✨</div>
-        <h2>Assalamu Alaikum! Welcome to DuoChat</h2>
-        <p>Select an accepted friend from your sidebar inbox to start chatting privately, or search by <strong>@username</strong> to send a friend request.</p>
-        <div class="privacy-note-pill">
-          🔒 Privacy Enforced: Users can only message or launch 2-player mini-games after a friend request is mutually accepted.
-        </div>
-      </div>
-
-      <!-- Active Conversation Container -->
-      <div id="activeChatView" class="active-chat-container hidden">
-        <!-- Conversation Topbar -->
-        <header class="chat-topbar">
-          <div class="partner-info">
-            <button type="button" id="mobileBackBtn" class="icon-btn mobile-only" title="Back to Inbox">←</button>
-            <div id="partnerAvatarBox" class="avatar-circle md"></div>
-            <div>
-              <div class="partner-name-row">
-                <h3 id="partnerDisplayName">Friend Name</h3>
-                <span id="partnerHandleBadge" class="handle-sub">@handle</span>
-              </div>
-              <div class="partner-status-row">
-                <span id="partnerStatusDot" class="status-dot"></span>
-                <span id="partnerStatusText">Offline</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Mini-Games Launcher Toolbar -->
-          <div class="games-toolbar">
-            <button type="button" class="game-launch-btn" data-game="rps" title="Play Rock Paper Scissors">
-              <span>✊</span> <span class="btn-label">RPS</span>
-            </button>
-            <button type="button" class="game-launch-btn" data-game="ttt" title="Play Tic-Tac-Toe">
-              <span>❌</span> <span class="btn-label">Tic-Tac-Toe</span>
-            </button>
-            <button type="button" class="game-launch-btn" data-game="c4" title="Play Connect Four">
-              <span>🔴</span> <span class="btn-label">Connect 4</span>
-            </button>
-            <button type="button" class="game-launch-btn" data-game="math" title="Play Quick Math Duel">
-              <span>🧮</span> <span class="btn-label">Math Duel</span>
-            </button>
-          </div>
-        </header>
-
-        <!-- Real-Time 2-Player Mini-Game Arena Drawer -->
-        <section id="gameArenaDrawer" class="game-arena-drawer hidden">
-          <div class="game-arena-header">
-            <div class="game-title-wrap">
-              <span id="gameArenaIcon" class="game-icon">🎮</span>
-              <div>
-                <h4 id="gameArenaTitle">Mini-Game</h4>
-                <p id="gameStatusBanner" class="game-status-banner">Waiting for move...</p>
-              </div>
-            </div>
-            <div class="game-header-controls">
-              <div id="gameScoreBoard" class="game-scoreboard"></div>
-              <button type="button" id="gameRematchBtn" class="small-pill-btn">↻ New Round</button>
-              <button type="button" id="gameCloseBtn" class="icon-btn sm" title="Close Game">✕</button>
-            </div>
-          </div>
-          <div id="gameStageBody" class="game-stage-body"></div>
-        </section>
-
-        <!-- Messages Stream -->
-        <div id="messagesViewport" class="messages-viewport">
-          <div id="messagesList" class="messages-list"></div>
-          <div id="typingIndicator" class="typing-indicator hidden">
-            <span id="typingUserText">Friend is typing</span>
-            <span class="typing-dots"><i></i><i></i><i></i></span>
-          </div>
-        </div>
-
-        <!-- Quick Vibe / Greeting Chips -->
-        <div class="quick-vibes-bar">
-          <button type="button" class="vibe-chip" data-text="Assalamu Alaikum! 🌙">🌙 Salam</button>
-          <button type="button" class="vibe-chip" data-text="Wa Alaikum Assalam! ✨">✨ Wa Alaikum</button>
-          <button type="button" class="vibe-chip" data-text="Alhamdulillah, doing great! 🤲">🤲 Alhamdulillah</button>
-          <button type="button" class="vibe-chip" data-text="Let's play a quick mini-game! 🎮">🎮 Play Game?</button>
-          <button type="button" class="vibe-chip" data-text="JazakAllah Khair! 🌸">🌸 JazakAllah</button>
-        </div>
-
-        <!-- Message Input Composer -->
-        <form id="messageForm" class="message-composer">
-          <input
-            type="text"
-            id="messageInput"
-            placeholder="Write a message..."
-            autocomplete="off"
-            maxlength="1000"
-          />
-          <button type="submit" class="send-btn" title="Send Message">
-            <span>Send</span>
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="22" y1="2" x2="11" y2="13"></line>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-            </svg>
-          </button>
-        </form>
-      </div>
-    </section>
-  </main>
-
-  <!-- ==========================================
-       3. EDIT PROFILE & AVATAR MODAL
-       ========================================== -->
-  <div id="profileModal" class="modal-backdrop hidden">
-    <div class="modal-card glass-panel">
-      <div class="modal-header">
-        <h3>Customize Profile & Modest Avatar</h3>
-        <button type="button" id="closeProfileModalBtn" class="icon-btn sm">✕</button>
-      </div>
-      <form id="profileUpdateForm" class="auth-form">
-        <div class="field-group">
-          <label for="editDisplayName">Display Name</label>
-          <input type="text" id="editDisplayName" required maxlength="28" />
-        </div>
-        <div class="field-group">
-          <label for="editBio">Status Bio</label>
-          <input type="text" id="editBio" maxlength="80" placeholder="Assalamu Alaikum! Ready to chat." />
-        </div>
-        <div class="field-group">
-          <label>Select Avatar</label>
-          <div id="editAvatarGrid" class="avatar-picker-grid"></div>
-        </div>
-        <div class="modal-actions">
-          <button type="button" id="cancelProfileBtn" class="secondary-btn">Cancel</button>
-          <button type="submit" class="primary-btn">Save Changes</button>
-        </div>
-      </form>
+    <div class="duo-connection" id="duoConnection">
+      <div class="duo-person"><div class="portrait my-portrait" id="myPortrait"></div><b id="myDisplayName">You</b><small>You</small></div>
+      <div class="connection-bridge"><span class="connection-label" id="connectionLabel" role="status">Waiting for friend</span><small>Your private space</small></div>
+      <div class="duo-person"><div class="portrait peer-portrait" id="peerPortrait"></div><b id="friendDisplayName">Friend</b><small id="friendPresence">Waiting…</small></div>
     </div>
-  </div>
+    <header>
+      <div class="avatar-wrap">
+        <div class="avatar" id="avatar">?</div>
+        <span class="online-dot" id="onlineDot"></span>
+      </div>
+      <div class="who">
+        <div class="name-row">
+          <b id="peerName">Waiting…</b>
+          <span id="peerMoodBadge" class="mood-badge hidden" title="Friend's mood"></span>
+        </div>
+        <small id="status" class="off">Offline</small>
+      </div>
+
+      <div class="header-actions">
+        <!-- Synced Weather Theme Selector -->
+        <div class="dropdown-wrap">
+          <button id="weatherBtn" class="icon-btn" title="Change Synced Weather Atmosphere">
+            <span id="weatherIcon" class="icon-svg-wrap">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+            </span>
+          </button>
+          <div id="weatherMenu" class="popover-menu hidden">
+            <div class="menu-title">Synced Atmosphere</div>
+            <button data-weather="clear">☀️ Clear Sky</button>
+            <button data-weather="rain">🌧️ Cozy Rain</button>
+            <button data-weather="storm">⛈️ Thunder Storm</button>
+            <button data-weather="snow">❄️ Soft Snow</button>
+            <button data-weather="stars">🌌 Starry Night</button>
+            <button data-weather="petals">🌸 Cherry Blossom</button>
+          </div>
+        </div>
+
+        <!-- Mood Selector -->
+        <div class="dropdown-wrap">
+          <button id="moodBtn" class="icon-btn" title="Set your mood">
+            <span id="myMoodIcon" class="icon-svg-wrap">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+            </span>
+          </button>
+          <div id="moodMenu" class="popover-menu hidden">
+            <div class="menu-title">Your Mood</div>
+            <button data-mood="😊 Chilling">😊 Chilling</button>
+            <button data-mood="📚 Studying">📚 Studying</button>
+            <button data-mood="☕ Coffee">☕ Coffee</button>
+            <button data-mood="🎧 Vibing">🎧 Vibing</button>
+            <button data-mood="😴 Sleepy">😴 Sleepy</button>
+            <button data-mood="🔥 Busy">🔥 Busy</button>
+            <button data-mood="">✖ Clear Mood</button>
+          </div>
+        </div>
+
+        <!-- Nudge / Buzz Button -->
+        <button id="nudgeBtn" class="icon-btn" title="Send Nudge / Buzz">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </button>
+
+        <!-- Copy Invite Link -->
+        <button id="inviteBtn" class="icon-btn" title="Copy Invite Link">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </button>
+
+        <!-- More Options Menu (Themes and chat settings) -->
+        <div class="dropdown-wrap">
+          <button id="moreBtn" class="icon-btn" title="More options">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+          </button>
+          <div id="moreMenu" class="popover-menu hidden">
+            <button id="themeBtn">◐ Light / Dark Mode</button>
+            <button id="themePresetsBtn">✦ Theme Gallery</button>
+            <button id="clearBtn" class="danger-text">⌫ Clear Chat</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- DuoPlay: real-time mini games -->
+    <div id="gamesModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="gamesTitle">
+      <div class="modal-card games-card">
+        <div class="modal-head">
+          <div><span class="eyebrow">DUOPLAY · TWO PLAYER ARCADE</span><h2 id="gamesTitle">Play together <span>✦</span></h2></div>
+          <button class="close-modal" data-close="gamesModal" aria-label="Close">×</button>
+        </div>
+        <div class="game-grid">
+          <button class="game-tile truth-tile" data-game="truth"><span class="game-symbol">♡</span><b>Truth or Dare</b><small>Take a turn. Be honest or be bold.</small><span class="tile-cta">Play now ↗</span></button>
+          <button class="game-tile tic-tile" data-game="tictactoe"><span class="game-symbol">✕ ○</span><b>Tic-Tac-Toe</b><small>A quick classic, just you two.</small><span class="tile-cta">Play now ↗</span></button>
+          <button class="game-tile rps-tile" data-game="rps"><span class="game-symbol">✊ ✋ ✌</span><b>Rock Paper Scissors</b><small>Best of three. Winner takes it.</small><span class="tile-cta">Play now ↗</span></button>
+        </div>
+        <div id="gameStage" class="game-stage hidden"></div>
+        <p class="game-footnote">Both players must be in the same DuoChat room to play.</p>
+      </div>
+    </div>
+
+    <div id="themesModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="themesTitle">
+      <div class="modal-card themes-card">
+        <div class="modal-head">
+          <div><span class="eyebrow">MAKE IT YOUR SPACE</span><h2 id="themesTitle">Choose your vibe <span>✦</span></h2></div>
+          <button class="close-modal" data-close="themesModal" aria-label="Close">×</button>
+        </div>
+        <div class="theme-grid">
+          <button class="theme-swatch" data-theme-choice="midnight"><i class="swatch midnight-swatch"></i><b>Midnight</b><small>Violet · AMOLED</small></button>
+          <button class="theme-swatch" data-theme-choice="aurora"><i class="swatch aurora-swatch"></i><b>Aurora</b><small>Blue · Cyan</small></button>
+          <button class="theme-swatch" data-theme-choice="sakura"><i class="swatch sakura-swatch"></i><b>Sakura</b><small>Rose · Soft</small></button>
+          <button class="theme-swatch" data-theme-choice="ocean"><i class="swatch ocean-swatch"></i><b>Ocean</b><small>Teal · Deep</small></button>
+          <button class="theme-swatch" data-theme-choice="sunset"><i class="swatch sunset-swatch"></i><b>Sunset</b><small>Amber · Warm</small></button>
+          <button class="theme-swatch" data-theme-choice="amoled"><i class="swatch amoled-swatch"></i><b>AMOLED</b><small>Pure black · Lime</small></button>
+        </div>
+        <p class="game-footnote">Your theme is saved on this device. Weather atmospheres remain available.</p>
+      </div>
+    </div>
+
+    <!-- Toast Notification Banner -->
+    <div id="toast" class="toast hidden"></div>
+
+    <!-- Messages Container -->
+    <main id="msgs"></main>
+
+    <!-- Live Typing Indicator Bubble -->
+    <div id="typingBubble" class="typing-indicator hidden">
+      <span></span><span></span><span></span>
+    </div>
+
+    <!-- Reply Preview Bar -->
+    <div id="replyBar" class="hidden">
+      <div class="reply-info">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+        <div><b id="rName"></b><span id="rText"></span></div>
+      </div>
+      <button id="rClose" class="icon-mini" title="Cancel reply">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <!-- Emoji Picker Drawer -->
+    <div id="emojis" class="hidden"></div>
+
+    <!-- Active Modes Indicator Strip -->
+    <div id="modeStrip" class="mode-strip hidden">
+      <span id="vanishTag" class="mode-pill hidden">⏱️ Vanish: 10s after seen</span>
+      <span id="spoilerTag" class="mode-pill hidden">👁️‍🗨️ Spoiler Blur ON</span>
+    </div>
+
+    <!-- Footer Input Bar -->
+    <footer>
+      <button id="gamesBtn" class="tool-btn" title="Play together">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><line x1="15" y1="13" x2="15.01" y2="13"/><line x1="18" y1="11" x2="18.01" y2="11"/><rect x="2" y="6" width="20" height="12" rx="4"/></svg>
+      </button>
+
+      <button id="emojiBtn" class="tool-btn" title="Emojis">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+      </button>
+
+      <button id="imgBtn" class="tool-btn" title="Send Photo">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      </button>
+      <input type="file" id="file" accept="image/*" hidden>
+
+      <button id="vanishBtn" class="tool-btn" title="Toggle Vanish Message (Auto-delete 10s after seen)">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M5 3 2 6"/><path d="m22 6-3-3"/><path d="M6.38 18.7 4 21"/><path d="M17.64 18.67 20 21"/></svg>
+      </button>
+
+      <button id="spoilerBtn" class="tool-btn" title="Toggle Spoiler Blur (Tap to reveal)">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+
+      <textarea id="input" rows="1" placeholder="Message…"></textarea>
+
+      <button id="send" class="primary send-btn" title="Send Message">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </footer>
+  </section>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="script.js"></script>

@@ -1,14 +1,17 @@
 {
-  "name": "duochat",
-  "version": "2.0.0",
-  "description": "Real-time Messenger-style Chat & Mini-Games Platform",
+  "name": "duo-chat",
+  "version": "5.0.0",
+  "description": "DuoChat v4 \u2014 private real-time chat with DuoPlay mini-games, message controls and premium themes",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "test": "node tests/accounts.test.js && node tests/game.test.js"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "socket.io": "^4.7.2"
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
   }
 }
