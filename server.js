@@ -236,7 +236,7 @@ io.on('connection', (socket) => {
 
     if (quickGuest) leaveQuickRoom();
 
-    let code = String(payload.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+    let code = String(payload.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
     let room = null;
 
     if (action === 'create') {

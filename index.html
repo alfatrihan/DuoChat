@@ -34,24 +34,28 @@
       </div>
 
       <!-- Quick Room Sub-options (Create Room / Join Room) -->
-      <div id="roomModeFields" class="hidden">
-        <div class="auth-tabs sub-room-tabs">
-          <button type="button" id="createRoomSubTab" class="game-action primary-action">Create Room</button>
-          <button type="button" id="joinRoomSubTab" class="game-action">Join Room</button>
+      <div id="roomModeFields" class="room-subpanel hidden">
+        <div class="subpanel-caption">
+          <span class="subpanel-branch">↳</span>
+          <span>Room Option</span>
+        </div>
+        <div class="segmented-subtabs" role="tablist" aria-label="Room action">
+          <button type="button" id="createRoomSubTab" class="seg-tab active">Create Room</button>
+          <button type="button" id="joinRoomSubTab" class="seg-tab">Join Room</button>
         </div>
 
         <div id="createRoomBox" class="room-code-card">
-          <div class="room-code-label">YOUR ROOM CODE</div>
+          <div class="room-code-label">YOUR 6-DIGIT ROOM CODE</div>
           <div class="room-code-row">
             <span id="generatedRoomCode" class="room-code-display">------</span>
             <button type="button" id="copyRoomCodeBtn" class="mini-pill-btn" title="Copy room code">Copy</button>
             <button type="button" id="regenRoomCodeBtn" class="mini-pill-btn" title="Generate new code">↻</button>
           </div>
-          <small class="room-code-hint">Share this code with your partner so they can join directly.</small>
+          <small class="room-code-hint">Share this 6-digit code with your partner so they can join directly.</small>
         </div>
 
         <div id="joinRoomBox" class="hidden">
-          <input id="joinRoomCodeInput" placeholder="Enter 6-character Room Code" maxlength="8" autocomplete="off" style="text-transform: uppercase; letter-spacing: 0.14em; font-weight: 700; text-align: center;">
+          <input id="joinRoomCodeInput" placeholder="Enter 6-digit Room Code" maxlength="6" autocomplete="off" style="text-transform: uppercase; letter-spacing: 0.18em; font-weight: 700; text-align: center; margin-bottom: 0;">
         </div>
       </div>
 

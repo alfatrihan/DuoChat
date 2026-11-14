@@ -23,14 +23,14 @@ const items = {}; // id -> { m, el, tick, seenSent, vanishTimer }
 /* ---------- Minimalist Flat Vector Avatars (Original Brothers + Updated Modest Sisters Portraits) ---------- */
 const AVATAR_NAMES = {
   male: [
-    'White Kufi',
-    'Classic Thobe',
+    'Kufi & Panjabi',
+    'Navy Bisht',
+    'Olive & Keffiyeh',
+    'Sage Amamah',
+    'Red Ghutra & Agal',
     'Smart Blazer',
-    'Red Ghutra',
-    'Olive Panjabi',
-    'White Keffiyeh',
-    'Modern Casual',
-    'Turban Wrap'
+    'Overshirt & Shades',
+    'Minimalist Hoodie'
   ],
   female: [
     'Rust Hijab & Shades',
@@ -126,78 +126,162 @@ function avatarArt(gender, variant = 0) {
     svg += `</svg>`;
     return svg;
   } else {
-    // Exact original Male Avatars from v5: Soft pastel backgrounds
-    const bg = ['#e4ecf2', '#e8efe9', '#e6e8f2', '#f3eae6', '#e9efe6', '#e5edf0', '#f0ece4', '#e8e6f2'][n];
-    const skin = ['#e5b896', '#d9a47e', '#ecc2a1', '#d49d76', '#e2b38f', '#dba782', '#e7bc9b', '#d7a17b'][n];
-    const beard = ['#2c2528', '#332a2c', '#262124', '#382e30', '#2b2426', '#2f2729', '#3b3134', '#2a2326'][n];
+    // Brothers Collection (M1 - M8): Exact styles & soft pastel gradient backdrops from approved preview
+    const bgPairs = [
+      ['#f3d9e6', '#d8e6f5'], // M1: Soft Pink-Lavender to Sky Blue
+      ['#d5e6f7', '#d8d4f2'], // M2: Sky Blue to Soft Periwinkle
+      ['#d6ebd9', '#d5e5f2'], // M3: Soft Mint-Sage to Pale Blue
+      ['#e8ebd5', '#d5e8e2'], // M4: Soft Cream-Sage to Mint
+      ['#f4d9e4', '#d8e5f5'], // M5: Soft Rose-Pink to Sky Blue
+      ['#f5dae3', '#d9e3f5'], // M6: Soft Blush to Pale Indigo
+      ['#f2dfd3', '#d8e3f2'], // M7: Soft Peach-Sand to Cool Blue
+      ['#d8e2f3', '#d4d9ee']  // M8: Soft Cool Blue-Slate
+    ][n];
 
-    // Variant 6: Casual modern clean beard & crewneck
-    if (n === 6) {
-      return `<svg viewBox="0 0 100 100" aria-hidden="true">
-        <circle cx="50" cy="50" r="50" fill="${bg}"/>
-        <path d="M20 100c2-21 14-29 30-29s28 8 30 29Z" fill="#49647a"/>
-        <rect x="44" y="55" width="12" height="17" rx="6" fill="${skin}"/>
+    const skin = ['#d9a47e', '#e5b896', '#dca782', '#e4b692', '#e2b28e', '#dfb08c', '#e6b896', '#d8a37e'][n];
+    const skinShade = ['#c48e68', '#d1a07c', '#c7916c', '#cfa07c', '#cc9b76', '#c99974', '#d1a07c', '#c28c67'][n];
+    const hair = ['#231c18', '#1f1916', '#261f1b', '#211b19', '#1c1817', '#4a372c', '#211a17', '#3b2c24'][n];
+    const beard = ['#211a16', '#1c1715', '#231c18', '#1f1917', '#1a1615', '#28201c', '#1f1916', '#241c18'][n];
+    const gid = `mBg${n}`;
+
+    const baseStart = `<svg viewBox="0 0 100 100" aria-hidden="true">
+      <defs>
+        <linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${bgPairs[0]}"/>
+          <stop offset="100%" stop-color="${bgPairs[1]}"/>
+        </linearGradient>
+      </defs>
+      <circle cx="50" cy="50" r="50" fill="url(#${gid})"/>`;
+
+    // M1: Kufi & Embroidered Cream Panjabi
+    if (n === 0) {
+      return `${baseStart}
+        <path d="M16 100C18 77 31 69 50 69s32 8 34 31Z" fill="#eae2d3"/>
+        <path d="M44 69h12v24H44Z" fill="#dfd5c3"/>
+        <path d="M41 69q9 7 18 0" fill="none" stroke="#b8a88a" stroke-width="2" stroke-linecap="round"/>
+        <line x1="50" y1="73" x2="50" y2="93" stroke="#b8a88a" stroke-width="1.5"/>
+        <circle cx="50" cy="78" r="1.2" fill="#8c7d65"/>
+        <circle cx="50" cy="84" r="1.2" fill="#8c7d65"/>
+        <rect x="44" y="54" width="12" height="17" rx="6" fill="${skinShade}"/>
         <rect x="36" y="25" width="28" height="35" rx="14" fill="${skin}"/>
-        <path d="M36 35c0-10 6-15 14-15s14 5 14 15c-2-5-7-7-14-7s-12 2-14 7Z" fill="${beard}"/>
-        <path d="M36 44c0 10 6 16 14 16s14-6 14-16c-3 5-8 7-14 7s-11-2-14-7Z" fill="${beard}"/>
-        <path d="M42 71q8 6 16 0" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M36 42.5c0 11 6 17.5 14 17.5s14-6.5 14-17.5c-3 4.8-8 7-14 7s-11-2.2-14-7Z" fill="${beard}"/>
+        <path d="M44 50.5q6-2.5 12 0" fill="none" stroke="${skin}" stroke-width="2" stroke-linecap="round"/>
+        <!-- Detailed White Knitted Kufi -->
+        <path d="M36 31.5c0-9.5 6-14.5 14-14.5s14 5 14 14.5Z" fill="#ffffff"/>
+        <rect x="36" y="28" width="28" height="3.2" fill="#e2e8f0"/>
+        <path d="M38 25h24M38 29.6h24" stroke="#94a3b8" stroke-width="1.1" stroke-dasharray="2 2"/>
       </svg>`;
     }
 
-    // Variant 7: Modest Turban / Headwrap & Beard
-    if (n === 7) {
-      return `<svg viewBox="0 0 100 100" aria-hidden="true">
-        <circle cx="50" cy="50" r="50" fill="${bg}"/>
-        <path d="M20 100c2-21 14-29 30-29s28 8 30 29Z" fill="#3c3752"/>
-        <rect x="44" y="55" width="12" height="17" rx="6" fill="${skin}"/>
-        <rect x="36" y="26" width="28" height="34" rx="14" fill="${skin}"/>
-        <path d="M36 44c0 10 6 16 14 16s14-6 14-16c-3 5-8 7-14 7s-11-2-14-7Z" fill="${beard}"/>
-        <path d="M32 32c0-12 8-19 18-19s18 7 18 19c-6-4-12-5-18-5s-12 1-18 5Z" fill="#685a8a"/>
-        <path d="M33 27l34 5M33 32l34-5" stroke="#534670" stroke-width="2.2" stroke-linecap="round"/>
+    // M2: Navy Bisht with Gold Zari Borders & White Thobe + Kufi
+    if (n === 1) {
+      return `${baseStart}
+        <path d="M22 100c2-21 13-29 28-29s26 8 28 29Z" fill="#ffffff"/>
+        <path d="M16 100c2-22 12-31 25-31l9 31H16Zm68 0c-2-22-12-31-25-31l-9 31h34Z" fill="#1e2f5c"/>
+        <path d="M41 69l9 31M59 69l-9 31" stroke="#eab308" stroke-width="2.5"/>
+        <line x1="50" y1="71" x2="50" y2="95" stroke="#cbd5e1" stroke-width="1.4"/>
+        <rect x="44" y="54" width="12" height="17" rx="6" fill="${skinShade}"/>
+        <rect x="36" y="25" width="28" height="35" rx="14" fill="${skin}"/>
+        <path d="M36 42.5c0 11 6 17.5 14 17.5s14-6.5 14-17.5c-3 4.8-8 7-14 7s-11-2.2-14-7Z" fill="${beard}"/>
+        <path d="M44 50.5q6-2.5 12 0" fill="none" stroke="${skin}" stroke-width="2" stroke-linecap="round"/>
+        <path d="M36 31c0-9 6-14 14-14s14 5 14 14Z" fill="#ffffff"/>
+        <line x1="36" y1="31" x2="64" y2="31" stroke="#cbd5e1" stroke-width="1.8"/>
       </svg>`;
     }
 
-    // Variants 3 & 5: Keffiyeh / Ghutra styles
-    if (n === 3 || n === 5) {
-      const cloth = n === 3 ? '#ffffff' : '#f7f8fa';
-      const pattern = n === 3 ? '#c84b55' : '#4a5568';
-      const robe = n === 3 ? '#2c3545' : '#f1f5f9';
-      return `<svg viewBox="0 0 100 100" aria-hidden="true">
-        <circle cx="50" cy="50" r="50" fill="${bg}"/>
-        <path d="M18 100c2-22 14-30 32-30s30 8 32 30Z" fill="${robe}"/>
-        <path d="M28 40c0-15 9-24 22-24s22 9 22 24l4 42H24Z" fill="${cloth}"/>
-        <path d="M29 32h42M28 38h44" stroke="${pattern}" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.65"/>
-        <rect x="37" y="28" width="26" height="32" rx="13" fill="${skin}"/>
-        <path d="M37 45c0 9 6 15 13 15s13-6 13-15c-3 4-7 6-13 6s-10-2-13-6Z" fill="${beard}"/>
-        <rect x="33" y="22" width="34" height="4.5" rx="2.2" fill="#1e2028"/>
-      </svg>`;
-    }
-
-    // Variants 0, 1, 2, 4: White Kufi / Prayer Cap + Thobe / Panjabi / Smart Blazer
-    const outfit = ['#ffffff', '#4a6b5d', '#2b364d', '', '#5c7260'][n];
-    const collarAccent = ['#cbd5e1', '#d4af37', '#ffffff', '', '#dce6dd'][n];
-    const capColor = n === 2 ? '#2b364d' : '#ffffff';
-    const capBorder = n === 2 ? '#1e2638' : '#cbd5e1';
-
-    let svg = `<svg viewBox="0 0 100 100" aria-hidden="true">
-      <circle cx="50" cy="50" r="50" fill="${bg}"/>
-      <path d="M19 100c2-21 14-29 31-29s29 8 31 29Z" fill="${outfit}"/>
-      <rect x="44" y="55" width="12" height="17" rx="6" fill="${skin}"/>
-      <rect x="36" y="26" width="28" height="34" rx="14" fill="${skin}"/>
-      <path d="M36 44c0 10 6 16 14 16s14-6 14-16c-3 5-8 7-14 7s-11-2-14-7Z" fill="${beard}"/>
-      <path d="M36 31c0-9 6-14 14-14s14 5 14 14Z" fill="${capColor}"/>
-      <line x1="36" y1="31" x2="64" y2="31" stroke="${capBorder}" stroke-width="2"/>`;
-
+    // M3: Olive Kurta & Draped Black-White Keffiyeh Scarf
     if (n === 2) {
-      svg += `<path d="M43 71l7 14 7-14Z" fill="#ffffff"/>
-              <path d="M39 71l11 19 11-19" fill="none" stroke="#1b2333" stroke-width="3" stroke-linejoin="round"/>`;
-    } else {
-      svg += `<line x1="50" y1="71" x2="50" y2="91" stroke="${collarAccent}" stroke-width="2.5" stroke-linecap="round"/>
-              <path d="M43 71q7 5 14 0" fill="none" stroke="${collarAccent}" stroke-width="2.5" stroke-linecap="round"/>`;
+      return `${baseStart}
+        <path d="M16 100C18 77 31 69 50 69s32 8 34 31Z" fill="#5e6b48"/>
+        <line x1="50" y1="72" x2="50" y2="94" stroke="#465234" stroke-width="1.6"/>
+        <!-- Draped Black & White Keffiyeh Scarf -->
+        <path d="M31 69c5 9 33 9 38 0l5 22-11 9-13-14-13 14-11-9Z" fill="#ffffff"/>
+        <path d="M32 74h36M30 80h40M34 86h32" stroke="#1e2028" stroke-width="1.8" stroke-dasharray="2.5 2.5"/>
+        <rect x="44" y="54" width="12" height="17" rx="6" fill="${skinShade}"/>
+        <rect x="36" y="25" width="28" height="35" rx="14" fill="${skin}"/>
+        <path d="M36 42.5c0 11 6 17.5 14 17.5s14-6.5 14-17.5c-3 4.8-8 7-14 7s-11-2.2-14-7Z" fill="${beard}"/>
+        <path d="M44 50.5q6-2.5 12 0" fill="none" stroke="${skin}" stroke-width="2" stroke-linecap="round"/>
+        <!-- Clean Short Hair -->
+        <path d="M36 33c0-9.5 6-14.5 14-14.5s14 5 14 14.5c-2.5-3.5-7-5-14-5s-11.5 1.5-14 5Z" fill="${hair}"/>
+      </svg>`;
     }
 
-    svg += `</svg>`;
-    return svg;
+    // M4: Sage Amamah Turban & Cream Jubbah + Long Full Beard
+    if (n === 3) {
+      return `${baseStart}
+        <path d="M16 100C18 77 31 69 50 69s32 8 34 31Z" fill="#f3efe6"/>
+        <line x1="50" y1="70" x2="50" y2="94" stroke="#cbd5e1" stroke-width="1.6"/>
+        <rect x="44" y="54" width="12" height="17" rx="6" fill="${skinShade}"/>
+        <rect x="36" y="27" width="28" height="33" rx="14" fill="${skin}"/>
+        <path d="M35.5 42c0 13 6 21 14.5 21s14.5-8 14.5-21c-3 5-8 7.5-14.5 7.5S38.5 47 35.5 42Z" fill="${beard}"/>
+        <path d="M44 50.5q6-2.5 12 0" fill="none" stroke="${skin}" stroke-width="2" stroke-linecap="round"/>
+        <!-- Sage Layered Amamah Turban + Hanging Tail -->
+        <path d="M62 31l7 42-8 5-4-41Z" fill="#7c9180"/>
+        <path d="M29 33c0-14 9-21 21-21s21 7 21 21c-6.5-4-13.5-5-21-5s-14.5 1-21 5Z" fill="#899e8d"/>
+        <path d="M30 25c12.5 5 27.5 5 40 0M31 30c12.5-4 25.5-4 38 0" fill="none" stroke="#627566" stroke-width="2" stroke-linecap="round"/>
+      </svg>`;
+    }
+
+    // M5: Classic Red & White Ghutra with Black Agal + White Thobe
+    if (n === 4) {
+      return `${baseStart}
+        <path d="M16 100C18 77 31 69 50 69s32 8 34 31Z" fill="#ffffff"/>
+        <line x1="50" y1="70" x2="50" y2="94" stroke="#cbd5e1" stroke-width="1.6"/>
+        <path d="M25 42c0-16 10-26 25-26s25 10 25 26l5 45H20Z" fill="#ffffff"/>
+        <path d="M26 33h48M24 40h52M22 48h56M21 56h58" stroke="#c53030" stroke-width="1.6" stroke-dasharray="3 3" opacity="0.78"/>
+        <rect x="37" y="28" width="26" height="32" rx="13" fill="${skin}"/>
+        <path d="M37 44.5c0 9.5 6 15.5 13 15.5s13-6 13-15.5c-3 4.2-7 6.2-13 6.2s-10-2-13-6.2Z" fill="${beard}"/>
+        <path d="M44 50.5q6-2.5 12 0" fill="none" stroke="${skin}" stroke-width="2" stroke-linecap="round"/>
+        <rect x="32" y="20.5" width="36" height="3.2" rx="1.6" fill="#18191f"/>
+        <rect x="32" y="24.5" width="36" height="3.2" rx="1.6" fill="#18191f"/>
+      </svg>`;
+    }
+
+    // M6: Smart Navy Blazer over White Mandarin Collar Shirt + Neat Short Fade
+    if (n === 5) {
+      return `${baseStart}
+        <path d="M22 100c2-21 13-29 28-29s26 8 28 29Z" fill="#ffffff"/>
+        <line x1="50" y1="71" x2="50" y2="94" stroke="#cbd5e1" stroke-width="1.5"/>
+        <path d="M16 100c2-22 12-31 24-31l10 29 10-29c12 0 22 9 24 31Z" fill="#233354"/>
+        <path d="M40 69l10 27 10-27" fill="none" stroke="#16223b" stroke-width="2.4" stroke-linejoin="round"/>
+        <rect x="44" y="54" width="12" height="17" rx="6" fill="${skinShade}"/>
+        <rect x="36" y="25" width="28" height="35" rx="14" fill="${skin}"/>
+        <path d="M36 43c0 10.5 6 16.5 14 16.5s14-6 14-16.5c-3 4.8-8 7-14 7s-11-2.2-14-7Z" fill="${beard}"/>
+        <path d="M44 50.5q6-2.5 12 0" fill="none" stroke="${skin}" stroke-width="2" stroke-linecap="round"/>
+        <path d="M36 33c0-9.5 6-14.5 14-14.5s14 5 14 14.5c-2.5-3.5-7-5-14-5s-11.5 1.5-14 5Z" fill="${hair}"/>
+      </svg>`;
+    }
+
+    // M7: Camel Overshirt over White Tee + Dark Wayfarer Sunglasses & Quiff Hair
+    if (n === 6) {
+      return `${baseStart}
+        <path d="M22 100c2-21 13-29 28-29s26 8 28 29Z" fill="#ffffff"/>
+        <path d="M16 100c2-22 12-31 24-31l7 31H16Zm68 0c-2-22-12-31-24-31l-7 31h31Z" fill="#b08254"/>
+        <rect x="44" y="54" width="12" height="17" rx="6" fill="${skinShade}"/>
+        <rect x="36" y="25" width="28" height="35" rx="14" fill="${skin}"/>
+        <path d="M36 43c0 10.5 6 16.5 14 16.5s14-6 14-16.5c-3 4.8-8 7-14 7s-11-2.2-14-7Z" fill="${beard}"/>
+        <path d="M44 50.5q6-2.5 12 0" fill="none" stroke="${skin}" stroke-width="2" stroke-linecap="round"/>
+        <path d="M35 33.5c0-10.5 5.5-16.5 15-16.5 8.5 0 14 5.5 14 16.5-2-4.5-6.5-6.5-14-6.5s-12.5 2-15 6.5Z" fill="${hair}"/>
+        <g stroke="#111318" stroke-width="2" fill="#181b22">
+          <rect x="37.5" y="36.5" width="11" height="7" rx="2"/>
+          <rect x="51.5" y="36.5" width="11" height="7" rx="2"/>
+          <line x1="48.5" y1="39" x2="51.5" y2="39"/>
+        </g>
+      </svg>`;
+    }
+
+    // M8: Minimalist Slate Hoodie & Clean Short Buzz/Fade Hair
+    return `${baseStart}
+      <path d="M16 100C18 77 31 69 50 69s32 8 34 31Z" fill="#525d6e"/>
+      <path d="M38 69c4 7 20 7 24 0" fill="none" stroke="#3b4452" stroke-width="3" stroke-linecap="round"/>
+      <line x1="45" y1="75" x2="45" y2="87" stroke="#cbd5e1" stroke-width="1.8" stroke-linecap="round"/>
+      <line x1="55" y1="75" x2="55" y2="87" stroke="#cbd5e1" stroke-width="1.8" stroke-linecap="round"/>
+      <rect x="44" y="54" width="12" height="17" rx="6" fill="${skinShade}"/>
+      <rect x="36" y="25" width="28" height="35" rx="14" fill="${skin}"/>
+      <path d="M36 43c0 10.5 6 16.5 14 16.5s14-6 14-16.5c-3 4.8-8 7-14 7s-11-2.2-14-7Z" fill="${beard}"/>
+      <path d="M44 50.5q6-2.5 12 0" fill="none" stroke="${skin}" stroke-width="2" stroke-linecap="round"/>
+      <path d="M36 33c0-9.5 6-14.5 14-14.5s14 5 14 14.5c-2.5-3.5-7-5-14-5s-11.5 1.5-14 5Z" fill="${hair}"/>
+    </svg>`;
   }
 }
 
@@ -1615,7 +1699,7 @@ let selectedAvatar = 0;
 function makeClientRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let c = '';
-  for (let i = 0; i < 8; i++) c += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 6; i++) c += chars[Math.floor(Math.random() * chars.length)];
   return c;
 }
 
@@ -1659,8 +1743,8 @@ function renderAvatarGallery() {
 
 function setRoomSubMode(sub) {
   roomSubMode = sub;
-  $('createRoomSubTab').classList.toggle('primary-action', sub === 'create');
-  $('joinRoomSubTab').classList.toggle('primary-action', sub === 'join');
+  $('createRoomSubTab').classList.toggle('active', sub === 'create');
+  $('joinRoomSubTab').classList.toggle('active', sub === 'join');
   $('createRoomBox').classList.toggle('hidden', sub !== 'create');
   $('joinRoomBox').classList.toggle('hidden', sub !== 'join');
   $('joinRoomCodeInput').required = authMode === 'room' && sub === 'join';
