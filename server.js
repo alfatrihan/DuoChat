@@ -111,7 +111,7 @@ function buildInboxList(userId) {
       mood: onlineEntry ? onlineEntry.mood : '',
       lastMessage: lastMsg
         ? {
-            text: lastMsg.spoiler ? '🔒 Spoiler message' : lastMsg.audio ? '🎤 Voice message' : lastMsg.image ? '📷 Photo' : lastMsg.text,
+            text: lastMsg.spoiler ? '🔒 Spoiler message' : lastMsg.widget ? (lastMsg.widget.kind === 'poll' ? '📊 Quick Poll' : lastMsg.widget.kind === 'vault' ? '🔐 Secret Passcode' : '❓ Duo Mini-Quiz') : lastMsg.audio ? '🎤 Voice message' : lastMsg.image ? '📷 Photo' : lastMsg.text,
             time: lastMsg.time,
             fromMe: lastMsg.from === userId
           }
@@ -470,6 +470,36 @@ io.on('connection', (socket) => {
     if (ctx.isQuick && !ctx.peerId) return cb({ error: 'Share your room code and wait for your partner to join.' });
 
     const peerOnline = ctx.isQuick ? true : isUserOnline(ctx.peerId);
+    let cleanWidget = null;
+    if (m.widget && typeof m.widget === 'object') {
+      if (m.widget.kind === 'poll') {
+        const q = clip(m.widget.question, 160).trim();
+        const opts = Array.isArray(m.widget.options)
+          ? m.widget.options.map((o) => clip(o, 60).trim()).filter(Boolean).slice(0, 4)
+          : [];
+        if (q && opts.length >= 2) {
+          cleanWidget = { kind: 'poll', question: q, options: opts, votes: {} };
+        }
+      } else if (m.widget.kind === 'vault') {
+        const clue = clip(m.widget.clue, 120).trim();
+        const secret = clip(m.widget.secret, 400).trim();
+        const pin = String(m.widget.pin || '').replace(/[^0-9A-Za-z]/g, '').slice(0, 6);
+        if (secret && pin.length >= 2) {
+          cleanWidget = { kind: 'vault', clue: clue || 'Enter passcode to unlock', secret, pin, unlockedBy: [] };
+        }
+      } else if (m.widget.kind === 'quiz') {
+        const question = clip(m.widget.question, 180).trim();
+        const options = Array.isArray(m.widget.options)
+          ? m.widget.options.map((o) => clip(o, 60).trim()).filter(Boolean).slice(0, 4)
+          : [];
+        const answerIdx = Math.max(0, Math.min(options.length - 1, Number(m.widget.answerIdx) || 0));
+        if (question && options.length >= 2) {
+          cleanWidget = { kind: 'quiz', question, options, answerIdx, answers: {} };
+        }
+      }
+    }
+
+    const validMorphs = ['normal', 'chipmunk', 'deep', 'robot', 'radio'];
     const clean = {
       id: clip(m.id, 40),
       roomKey: ctx.roomKey,
@@ -480,6 +510,8 @@ io.on('connection', (socket) => {
       image: typeof m.image === 'string' && m.image.startsWith('data:image/') ? m.image : null,
       audio: typeof m.audio === 'string' && m.audio.startsWith('data:audio/') && m.audio.length < 3_500_000 ? m.audio : null,
       audioDuration: typeof m.audioDuration === 'number' ? Math.max(1, Math.min(180, Math.round(m.audioDuration))) : null,
+      audioMorph: validMorphs.includes(m.audioMorph) ? m.audioMorph : 'normal',
+      widget: cleanWidget,
       reply: m.reply ? { name: clip(m.reply.name, 24), text: clip(m.reply.text, 120) } : null,
       vanish: !!m.vanish,
       spoiler: !!m.spoiler,
@@ -488,7 +520,7 @@ io.on('connection', (socket) => {
       status: peerOnline ? 'delivered' : 'sent'
     };
 
-    if (!clean.id || (!clean.text.trim() && !clean.image && !clean.audio)) return;
+    if (!clean.id || (!clean.text.trim() && !clean.image && !clean.audio && !clean.widget)) return;
     if (ctx.conv.history.some((item) => item.id === clean.id)) return cb(clean.status);
 
     ctx.conv.history.push(clean);
@@ -613,6 +645,70 @@ io.on('connection', (socket) => {
     const entry = onlineUsers.get(currentUser.id);
     if (entry) entry.mood = cleanMood;
     notifyFriendsPresence(currentUser.id);
+  });
+
+
+  /* ---------- Feature 3: Live Heartbeat Tap ---------- */
+  socket.on('heartbeat', ({ peerId } = {}) => {
+    const ctx = resolveActiveContext(peerId);
+    if (!ctx || !ctx.peerId) return;
+    emitToUser(ctx.peerId, 'heartbeat', {
+      roomKey: ctx.roomKey,
+      fromId: ctx.me.id,
+      fromName: ctx.me.name
+    });
+  });
+
+  /* ---------- Feature 9: Screenshot Detection Alert ---------- */
+  socket.on('screenshot-taken', ({ peerId } = {}) => {
+    const ctx = resolveActiveContext(peerId);
+    if (!ctx || !ctx.peerId) return;
+    const payload = {
+      roomKey: ctx.roomKey,
+      byId: ctx.me.id,
+      byName: ctx.me.name,
+      time: Date.now()
+    };
+    emitToUser(ctx.peerId, 'screenshot-alert', payload);
+    emitToUser(ctx.me.id, 'screenshot-alert', payload);
+  });
+
+  /* ---------- Features 18 & 21: In-Chat Interactive Widget Updates (Poll, Passcode Vault, Mini-Quiz) ---------- */
+  socket.on('widget-interact', ({ peerId, id, action, value } = {}, cb = () => {}) => {
+    const ctx = resolveActiveContext(peerId);
+    if (!ctx || !id) return cb({ error: 'Session unavailable.' });
+    const msg = ctx.conv.history.find((item) => item.id === id);
+    if (!msg || !msg.widget) return cb({ error: 'Item not found.' });
+
+    if (msg.widget.kind === 'poll' && action === 'vote') {
+      const idx = Number(value);
+      if (!Number.isInteger(idx) || idx < 0 || idx >= msg.widget.options.length) {
+        return cb({ error: 'Invalid option.' });
+      }
+      msg.widget.votes[ctx.me.id] = idx;
+    } else if (msg.widget.kind === 'vault' && action === 'unlock') {
+      const attempt = String(value || '').trim();
+      if (attempt.toLowerCase() !== String(msg.widget.pin).toLowerCase()) {
+        return cb({ error: 'Incorrect passcode! Try again.' });
+      }
+      if (!msg.widget.unlockedBy.includes(ctx.me.id)) {
+        msg.widget.unlockedBy.push(ctx.me.id);
+      }
+    } else if (msg.widget.kind === 'quiz' && action === 'answer') {
+      const idx = Number(value);
+      if (!Number.isInteger(idx) || idx < 0 || idx >= msg.widget.options.length) {
+        return cb({ error: 'Invalid answer.' });
+      }
+      msg.widget.answers[ctx.me.id] = idx;
+    } else {
+      return cb({ error: 'Unsupported action.' });
+    }
+
+    if (!ctx.isQuick) persistConversations();
+    const updatePayload = { roomKey: ctx.roomKey, id, widget: msg.widget };
+    if (ctx.peerId) emitToUser(ctx.peerId, 'widget-updated', updatePayload);
+    emitToUser(ctx.me.id, 'widget-updated', updatePayload);
+    cb({ ok: true });
   });
 
   socket.on('nudge', ({ peerId } = {}) => {

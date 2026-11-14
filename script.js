@@ -504,14 +504,45 @@ $('moodBtn').onclick = (e) => {
   closeAllMenus();
   if (isHidden) $('moodMenu').classList.remove('hidden');
 };
+const AURA_KEYS = ['chill', 'focus', 'cozy', 'vibe', 'peace', 'fire', 'love'];
+function inferAuraFromMood(moodStr) {
+  if (!moodStr) return '';
+  if (moodStr.includes('Chilling')) return 'chill';
+  if (moodStr.includes('Studying')) return 'focus';
+  if (moodStr.includes('Coffee')) return 'cozy';
+  if (moodStr.includes('Vibing')) return 'vibe';
+  if (moodStr.includes('Dua')) return 'peace';
+  if (moodStr.includes('Busy')) return 'fire';
+  if (moodStr.includes('Affectionate')) return 'love';
+  return 'chill';
+}
+function applyAuraClass(elTarget, aura) {
+  if (!elTarget) return;
+  AURA_KEYS.forEach((k) => elTarget.classList.remove('aura-' + k));
+  if (aura && AURA_KEYS.includes(aura)) elTarget.classList.add('aura-' + aura);
+}
+function applyMyAura(moodStr) {
+  const aura = inferAuraFromMood(moodStr);
+  applyAuraClass($('sidebarMyAuraWrap'), aura);
+  applyAuraClass($('myPortrait'), aura);
+}
+
 $('moodMenu').querySelectorAll('button').forEach((btn) => {
   btn.onclick = () => {
     myMood = btn.dataset.mood;
     $('moodBtn').classList.toggle('active-symbol', !!myMood);
+    applyMyAura(myMood);
     socket.emit('mood', myMood);
-    showToast(myMood ? `Mood set to ${myMood}` : 'Mood cleared');
+    showToast(myMood ? `Aura & Mood set to ${myMood}` : 'Aura cleared');
   };
 });
+if ($('roomMoodBtn')) {
+  $('roomMoodBtn').onclick = (e) => {
+    e.stopPropagation();
+    closeAllMenus();
+    $('moodMenu').classList.remove('hidden');
+  };
+}
 
 $('moreBtn').onclick = (e) => {
   e.stopPropagation();
@@ -541,7 +572,7 @@ function renderSidebar() {
     info.append(top, sub);
 
     const acts = el('div', 'row-actions');
-    const acceptBtn = el('button', 'mini-pill-btn solid', 'Accept');
+    const acceptBtn = el('button', 'mini-pill-btn solid icon-only-pill'); acceptBtn.title = 'Accept'; acceptBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
     acceptBtn.onclick = () => {
       socket.emit('friend-accept', u.id, (res) => {
         if (res.error) return showToast(res.error);
@@ -550,7 +581,7 @@ function renderSidebar() {
         showToast(`You and ${u.name} are now friends!`);
       });
     };
-    const declineBtn = el('button', 'mini-pill-btn decline', 'Decline');
+    const declineBtn = el('button', 'mini-pill-btn decline icon-only-pill'); declineBtn.title = 'Decline'; declineBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
     declineBtn.onclick = () => {
       socket.emit('friend-decline', u.id, (res) => {
         if (res.error) return showToast(res.error);
@@ -655,14 +686,14 @@ function renderSearchResults(results) {
 
     const acts = el('div', 'row-actions');
     if (u.relation === 'friend') {
-      const chatBtn = el('button', 'mini-pill-btn', 'Chat');
+      const chatBtn = el('button', 'mini-pill-btn icon-only-pill'); chatBtn.title = 'Open Chat'; chatBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>';
       chatBtn.onclick = () => {
         $('clearSearchBtn').click();
         openConversation(u.id);
       };
       acts.append(chatBtn);
     } else if (u.relation === 'incoming') {
-      const accBtn = el('button', 'mini-pill-btn solid', 'Accept');
+      const accBtn = el('button', 'mini-pill-btn solid icon-only-pill'); accBtn.title = 'Accept'; accBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
       accBtn.onclick = () => {
         socket.emit('friend-accept', u.id, (res) => {
           if (res.error) return showToast(res.error);
@@ -674,7 +705,7 @@ function renderSearchResults(results) {
       };
       acts.append(accBtn);
     } else if (u.relation === 'outgoing') {
-      const pendBtn = el('button', 'mini-pill-btn', 'Requested');
+      const pendBtn = el('button', 'mini-pill-btn icon-only-pill'); pendBtn.title = 'Cancel Request'; pendBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>';
       pendBtn.onclick = () => {
         socket.emit('friend-cancel', u.id, (res) => {
           if (res.error) return showToast(res.error);
@@ -686,7 +717,7 @@ function renderSearchResults(results) {
       };
       acts.append(pendBtn);
     } else {
-      const addBtn = el('button', 'mini-pill-btn solid', '+ Add');
+      const addBtn = el('button', 'mini-pill-btn solid icon-only-pill'); addBtn.title = 'Add Friend'; addBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>';
       addBtn.onclick = () => {
         socket.emit('friend-request', u.username, (res) => {
           if (res.error) return showToast(res.error);
@@ -732,6 +763,7 @@ function openConversation(peerId) {
     applyWeather(res.weather || 'clear', null);
     updatePeerMood(activePeer.mood || '');
     updateChatHeader();
+    if (activePeer.online) triggerPresenceConfetti(activePeer.name);
     markSeen();
 
     if (res.game) {
@@ -789,8 +821,13 @@ function updateChatHeader(reconnecting) {
 
 function updatePeerMood(mood) {
   const badge = $('peerMoodBadge');
+  const aura = inferAuraFromMood(mood);
+  applyAuraClass($('headerPeerAuraWrap'), aura);
+  applyAuraClass($('peerPortrait'), aura);
+  AURA_KEYS.forEach((k) => badge.classList.remove('aura-badge-' + k));
   if (mood) {
     badge.textContent = mood;
+    if (aura) badge.classList.add('aura-badge-' + aura);
     badge.classList.remove('hidden');
   } else {
     badge.classList.add('hidden');
@@ -824,7 +861,11 @@ socket.on('friend-presence', ({ userId, online, mood, name, gender, avatar }) =>
     renderSidebar();
   }
   if (activePeer && activePeer.id === userId) {
+    const wasOffline = !activePeer.online;
     activePeer.online = online;
+    if (online && wasOffline) {
+      triggerPresenceConfetti(activePeer.name);
+    }
     if (name) activePeer.name = name;
     if (gender) activePeer.gender = gender;
     if (avatar !== undefined) activePeer.avatar = avatar;
@@ -971,7 +1012,10 @@ function render(m) {
   }
 
   if (m.audio) {
-    d.append(buildVoicePlayer(m.audio, m.audioDuration || 0));
+    d.append(buildVoicePlayer(m.audio, m.audioDuration || 0, m.audioMorph || 'normal'));
+  }
+  if (m.widget) {
+    d.append(buildInteractiveWidget(m));
   }
 
   if (m.text) d.append(el('div', 'txt', m.text));
@@ -1095,6 +1139,7 @@ function applyReaction(id, emoji) {
   const it = items[id];
   if (!it) return;
   it.m.reaction = emoji;
+  triggerReactionBlast(emoji);
   let pill = it.el.querySelector('.reaction-pill');
   if (!pill) {
     pill = el('div', 'reaction-pill', emoji);
@@ -1137,6 +1182,7 @@ function send(image) {
     spoiler: spoilerMode
   };
 
+  playSendSound();
   render({ ...m, from: cid, name: currentAccount.name, time: now, status: 'sending' });
   updateSidebarPreview(activePeer.id, spoilerMode ? '🔒 Spoiler message' : image ? '📷 Photo' : text, now, true, false);
 
@@ -1162,6 +1208,7 @@ $('input').addEventListener('keydown', (e) => {
 });
 let typingTimer;
 $('input').addEventListener('input', (e) => {
+  playKeyTick();
   e.target.style.height = '40px';
   e.target.style.height = Math.min(e.target.scrollHeight, 110) + 'px';
   if (!activePeer) return;
@@ -1228,7 +1275,7 @@ function fmtDuration(sec) {
   return `${m}:${rem < 10 ? '0' : ''}${rem}`;
 }
 
-function buildVoicePlayer(audioSrc, initialDuration) {
+function buildVoicePlayer(audioSrc, initialDuration, morph = 'normal') {
   const wrap = el('div', 'voice-note-player');
   const playBtn = el('button', 'voice-play-btn', '▶');
   playBtn.type = 'button';
@@ -1244,9 +1291,16 @@ function buildVoicePlayer(audioSrc, initialDuration) {
     return bar;
   });
 
+  const morphLabels = {
+    normal: '🎤 Voice',
+    chipmunk: '🐿️ Helium',
+    deep: '🦍 Deep',
+    robot: '🤖 Echo',
+    radio: '📻 Retro'
+  };
   const metaRow = el('div', 'voice-meta-row');
   const timeLbl = el('span', '', fmtDuration(initialDuration));
-  const tagLbl = el('span', '', '🎤 Voice');
+  const tagLbl = el('span', morph !== 'normal' ? 'voice-morph-badge' : '', morphLabels[morph] || '🎤 Voice');
   metaRow.append(timeLbl, tagLbl);
 
   waveWrap.append(barsRow, metaRow);
@@ -1254,6 +1308,18 @@ function buildVoicePlayer(audioSrc, initialDuration) {
 
   const audioObj = new Audio(audioSrc);
   audioObj.preload = 'metadata';
+  if (morph === 'chipmunk') {
+    audioObj.preservesPitch = false;
+    audioObj.playbackRate = 1.38;
+  } else if (morph === 'deep') {
+    audioObj.preservesPitch = false;
+    audioObj.playbackRate = 0.76;
+  } else if (morph === 'robot') {
+    audioObj.preservesPitch = false;
+    audioObj.playbackRate = 0.92;
+  } else if (morph === 'radio') {
+    audioObj.playbackRate = 1.06;
+  }
 
   audioObj.addEventListener('loadedmetadata', () => {
     if (isFinite(audioObj.duration) && audioObj.duration > 0) {
@@ -1303,6 +1369,7 @@ function buildVoicePlayer(audioSrc, initialDuration) {
 
 function sendVoiceNote(audioDataUrl, durationSec) {
   if (!activePeer || !socket.connected) return showToast('Select an online partner or wait to reconnect.');
+  const morph = $('voiceMorphSelect') ? $('voiceMorphSelect').value : 'normal';
   const now = Date.now();
   const m = {
     id: cid.slice(0, 6) + rnd(),
@@ -1311,11 +1378,13 @@ function sendVoiceNote(audioDataUrl, durationSec) {
     image: null,
     audio: audioDataUrl,
     audioDuration: Math.max(1, Math.round(durationSec)),
+    audioMorph: morph,
     reply: replyTo,
     vanish: vanishMode,
     spoiler: spoilerMode
   };
 
+  playSendSound();
   render({ ...m, from: cid, name: currentAccount.name, time: now, status: 'sending' });
   updateSidebarPreview(activePeer.id, spoilerMode ? '🔒 Spoiler message' : '🎤 Voice message', now, true, false);
 
@@ -1497,6 +1566,10 @@ document.querySelectorAll('[data-game]').forEach((b) => {
   b.onclick = () => {
     if (!activePeer) return;
     const type = b.dataset.game;
+    if (['secretvault', 'duoquiz', 'duopoll'].includes(type)) {
+      openInteractiveCreatorInStage(type);
+      return;
+    }
     socket.emit('game-start', { peerId: activePeer.id, type }, (res) => {
       if (res && res.error) return showToast(res.error);
     });
@@ -1748,7 +1821,7 @@ function setRoomSubMode(sub) {
   $('createRoomBox').classList.toggle('hidden', sub !== 'create');
   $('joinRoomBox').classList.toggle('hidden', sub !== 'join');
   $('joinRoomCodeInput').required = authMode === 'room' && sub === 'join';
-  $('authSubmit').textContent = sub === 'create' ? 'Create & Enter Room' : 'Join Room';
+  ($('authSubmitText') || $('authSubmit')).textContent = sub === 'create' ? 'Create & Enter Room' : 'Join Room';
   $('authError').textContent = '';
 }
 
@@ -1770,20 +1843,26 @@ function setAuthMode(mode) {
   $('loginTab').classList.toggle('primary-action', isAccount);
   $('roomTab').classList.toggle('primary-action', mode === 'room');
 
-  // Bottom Facebook-style toggle footer
-  if (mode === 'register') {
-    $('authSwitchPrompt').textContent = 'Already have an account?';
-    $('registerTab').textContent = 'Sign in to account';
-  } else {
-    $('authSwitchPrompt').textContent = "Don't have an account?";
-    $('registerTab').textContent = 'Create new account';
+  // Hide 'Create account' footer completely when Chat Room mode is selected
+  if ($('authSwitchFooter')) {
+    $('authSwitchFooter').classList.toggle('hidden', mode === 'room');
   }
 
+  // Bottom toggle footer text for Sign in / Register
+  if (mode === 'register') {
+    $('authSwitchPrompt').textContent = 'Already have an account?';
+    if ($('registerTabText')) $('registerTabText').textContent = 'Sign in to account';
+  } else {
+    $('authSwitchPrompt').textContent = "Don't have an account?";
+    if ($('registerTabText')) $('registerTabText').textContent = 'Create new account';
+  }
+
+  const submitSpan = $('authSubmitText') || $('authSubmit');
   if (mode === 'login') {
-    $('authSubmit').textContent = 'Sign in';
+    submitSpan.textContent = 'Sign in';
     $('password').autocomplete = 'current-password';
   } else if (mode === 'register') {
-    $('authSubmit').textContent = 'Create account';
+    submitSpan.textContent = 'Create account';
     $('password').autocomplete = 'new-password';
   } else {
     setRoomSubMode(roomSubMode);
@@ -1862,6 +1941,7 @@ socket.on('quick-room-peer-joined', ({ roomKey, peer }) => {
   showToast(`🎉 ${peer.name} joined the room!`);
   updatePeerMood(peer.mood || '');
   updateChatHeader();
+  triggerPresenceConfetti(peer.name);
 });
 
 function enterApp(user) {
@@ -2000,3 +2080,455 @@ socket.on('disconnect', () => {
 
 renderAvatarGallery();
 setAuthMode('login');
+
+
+/* ==========================================================================
+   DuoChat v7 New Features Implementation (3, 9, 18, 21, 22, 24, 26)
+   ========================================================================== */
+
+/* ---------- Feature 24: Subtle Typing & Send Sound Effects + Haptics ---------- */
+let soundFxEnabled = localStorage.getItem('duochat_sound_fx') !== '0';
+let lastKeyTickTime = 0;
+
+function updateSoundToggleUI() {
+  if ($('soundToggleLabel')) {
+    $('soundToggleLabel').textContent = `Key & Send Sound: ${soundFxEnabled ? 'ON' : 'OFF'}`;
+  }
+}
+updateSoundToggleUI();
+
+if ($('soundToggleBtn')) {
+  $('soundToggleBtn').onclick = (e) => {
+    e.stopPropagation();
+    soundFxEnabled = !soundFxEnabled;
+    localStorage.setItem('duochat_sound_fx', soundFxEnabled ? '1' : '0');
+    updateSoundToggleUI();
+    showToast(soundFxEnabled ? '🔊 Typing & send sounds enabled' : '🔇 Typing & send sounds muted');
+  };
+}
+
+function playKeyTick() {
+  if (!soundFxEnabled) return;
+  const now = Date.now();
+  if (now - lastKeyTickTime < 45) return;
+  lastKeyTickTime = now;
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audio.createOscillator();
+    const g = audio.createGain();
+    o.type = 'triangle';
+    o.frequency.value = 520 + Math.random() * 140;
+    g.gain.setValueAtTime(0.018, audio.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0008, audio.currentTime + 0.035);
+    o.connect(g);
+    g.connect(audio.destination);
+    o.start();
+    o.stop(audio.currentTime + 0.035);
+  } catch (e) {}
+}
+
+function playSendSound() {
+  if (!soundFxEnabled) return;
+  try {
+    if (navigator.vibrate) navigator.vibrate(15);
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audio.createOscillator();
+    const g = audio.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(540, audio.currentTime);
+    o.frequency.exponentialRampToValueAtTime(860, audio.currentTime + 0.11);
+    g.gain.setValueAtTime(0.055, audio.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + 0.12);
+    o.connect(g);
+    g.connect(audio.destination);
+    o.start();
+    o.stop(audio.currentTime + 0.12);
+  } catch (e) {}
+}
+
+/* ---------- Feature 3: Live Heartbeat Tap (Long-Press Screen or Header Heart) ---------- */
+function playHeartbeatPulse(senderName, isOutgoing = false) {
+  if (navigator.vibrate) {
+    navigator.vibrate([90, 70, 140]);
+  }
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.16].forEach((offset, idx) => {
+      const o = audio.createOscillator();
+      const g = audio.createGain();
+      o.type = 'sine';
+      o.frequency.value = idx === 0 ? 115 : 95;
+      g.gain.setValueAtTime(0.14, audio.currentTime + offset);
+      g.gain.exponentialRampToValueAtTime(0.001, audio.currentTime + offset + 0.14);
+      o.connect(g);
+      g.connect(audio.destination);
+      o.start(audio.currentTime + offset);
+      o.stop(audio.currentTime + offset + 0.14);
+    });
+  } catch (e) {}
+
+  const ov = $('heartbeatOverlay');
+  if (ov) {
+    ov.classList.remove('hidden');
+    ov.style.animation = 'none';
+    void ov.offsetWidth;
+    ov.style.animation = '';
+    clearTimeout(ov._timer);
+    ov._timer = setTimeout(() => ov.classList.add('hidden'), 1500);
+  }
+
+  if (isOutgoing) {
+    showToast(`💓 Heartbeat pulse sent to ${senderName}`);
+  } else {
+    showToast(`💓 ${senderName} sent a Live Heartbeat pulse!`);
+  }
+}
+
+function sendLiveHeartbeat() {
+  if (!activePeer || !socket.connected) return showToast('Partner must be connected to feel your heartbeat.');
+  socket.emit('heartbeat', { peerId: activePeer.id });
+  playHeartbeatPulse(activePeer.name, true);
+}
+
+socket.on('heartbeat', ({ roomKey, fromName }) => {
+  if (roomKey === activeRoomKey) {
+    playHeartbeatPulse(fromName || activePeer?.name || 'Partner', false);
+  }
+});
+
+// Long-press on header heartbeat button OR empty chat area triggers Live Heartbeat Tap
+let hbHoldTimer = null;
+const hbBtn = $('heartbeatBtn');
+if (hbBtn) {
+  hbBtn.addEventListener('pointerdown', () => {
+    hbBtn.classList.add('holding');
+    hbHoldTimer = setTimeout(() => {
+      hbBtn.classList.remove('holding');
+      sendLiveHeartbeat();
+    }, 450);
+  });
+  hbBtn.addEventListener('pointerup', () => {
+    hbBtn.classList.remove('holding');
+    clearTimeout(hbHoldTimer);
+  });
+  hbBtn.addEventListener('pointerleave', () => {
+    hbBtn.classList.remove('holding');
+    clearTimeout(hbHoldTimer);
+  });
+  hbBtn.onclick = () => sendLiveHeartbeat();
+}
+
+let msgAreaHoldTimer = null;
+$('msgs').addEventListener('pointerdown', (e) => {
+  if (e.target.closest('.m') || e.target.closest('button') || e.target.closest('input')) return;
+  msgAreaHoldTimer = setTimeout(() => {
+    sendLiveHeartbeat();
+  }, 600);
+});
+['pointerup', 'pointerleave', 'pointermove'].forEach((ev) => {
+  $('msgs').addEventListener(ev, () => clearTimeout(msgAreaHoldTimer));
+});
+
+/* ---------- Feature 9: Screenshot Detection Alert ---------- */
+let lastScreenshotAt = 0;
+function reportScreenshotTaken() {
+  if (!activePeer || !socket.connected || $('activeChatView').classList.contains('hidden')) return;
+  const now = Date.now();
+  if (now - lastScreenshotAt < 3000) return;
+  lastScreenshotAt = now;
+  socket.emit('screenshot-taken', { peerId: activePeer.id });
+}
+
+document.addEventListener('keyup', (e) => {
+  if (e.key === 'PrintScreen' || (e.metaKey && e.shiftKey && ['3', '4', '5'].includes(e.key))) {
+    reportScreenshotTaken();
+  }
+});
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 's') {
+    reportScreenshotTaken();
+  }
+});
+
+socket.on('screenshot-alert', ({ roomKey, byId, byName }) => {
+  if (roomKey !== activeRoomKey) return;
+  const label = byId === cid ? 'You took a screenshot of the chat' : `${byName} took a screenshot!`;
+  const banner = el('div', 'system-alert-pill');
+  banner.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span>${label}</span>`;
+  $('msgs').append(banner);
+  scrollDown();
+  if (byId !== cid) {
+    beep(960);
+    showToast(`📸 ${label}`);
+  }
+});
+
+/* ---------- Feature 22: Custom Blast Reactions ---------- */
+function triggerReactionBlast(emoji) {
+  const overlay = $('fxOverlay');
+  if (!overlay || !emoji) return;
+  const burstMap = {
+    '❤️': ['❤️', '💖', '💕', '💗', '💓'],
+    '🔥': ['🔥', '✨', '💥', '⚡'],
+    '😂': ['😂', '🤣', '😆', '✨'],
+    '🤲': ['🤲', '✨', '🌙', '💫'],
+    '😮': ['😮', '✨', '🌟', '💫'],
+    '😢': ['😢', '💧', '🫂'],
+    '👍': ['👍', '✨', '⭐']
+  };
+  const pool = burstMap[emoji] || [emoji, '✨'];
+  for (let i = 0; i < 18; i++) {
+    const p = document.createElement('span');
+    p.className = 'fx-particle';
+    p.textContent = pool[i % pool.length];
+    p.style.left = `${12 + Math.random() * 76}%`;
+    p.style.bottom = `${10 + Math.random() * 25}%`;
+    p.style.setProperty('--dx1', `${(Math.random() - 0.5) * 90}px`);
+    p.style.setProperty('--dx2', `${(Math.random() - 0.5) * 180}px`);
+    p.style.setProperty('--rot1', `${(Math.random() - 0.5) * 40}deg`);
+    p.style.setProperty('--rot2', `${(Math.random() - 0.5) * 80}deg`);
+    p.style.setProperty('--dur', `${1.3 + Math.random() * 0.8}s`);
+    overlay.append(p);
+    setTimeout(() => p.remove(), 2200);
+  }
+}
+
+/* ---------- Feature 26: Dual-Online Presence Confetti Celebration ---------- */
+let lastConfettiPeerId = '';
+let lastConfettiTime = 0;
+function triggerPresenceConfetti(peerName) {
+  const now = Date.now();
+  if (activePeer && lastConfettiPeerId === activePeer.id && now - lastConfettiTime < 25000) return;
+  lastConfettiPeerId = activePeer ? activePeer.id : '';
+  lastConfettiTime = now;
+
+  const overlay = $('fxOverlay');
+  if (!overlay) return;
+  const colors = ['#8b5cf6', '#38bdf8', '#f43f5e', '#10b981', '#f59e0b', '#ec4899'];
+  for (let i = 0; i < 36; i++) {
+    const c = document.createElement('span');
+    c.className = 'fx-confetti';
+    c.style.left = `${Math.random() * 100}%`;
+    c.style.backgroundColor = colors[i % colors.length];
+    c.style.setProperty('--drift', `${(Math.random() - 0.5) * 140}px`);
+    c.style.setProperty('--dur', `${1.8 + Math.random() * 1.2}s`);
+    c.style.animationDelay = `${Math.random() * 0.35}s`;
+    overlay.append(c);
+    setTimeout(() => c.remove(), 3400);
+  }
+  showToast(`✨ You and ${peerName} are both online together!`);
+}
+
+/* ---------- Features 18 & 21: Quick Duo Poll, Secret Passcode Vault & Duo Mini-Quiz ---------- */
+function sendWidgetMessage(widgetObj, previewLabel) {
+  if (!activePeer || !socket.connected) return showToast('Connect with your partner first.');
+  const now = Date.now();
+  const m = {
+    id: cid.slice(0, 6) + rnd(),
+    to: activePeer.id,
+    text: '',
+    image: null,
+    widget: widgetObj,
+    reply: replyTo,
+    vanish: false,
+    spoiler: false
+  };
+  playSendSound();
+  render({ ...m, from: cid, name: currentAccount.name, time: now, status: 'sending' });
+  updateSidebarPreview(activePeer.id, previewLabel, now, true, false);
+  socket.emit('msg', m, (status) => {
+    if (status && status.error) return showToast(status.error);
+    setStatus(m.id, status);
+  });
+  closeModal('gamesModal');
+}
+
+function openInteractiveCreatorInStage(type) {
+  $('gamePickerGrid').classList.add('hidden');
+  const stage = $('gameStage');
+  stage.classList.remove('hidden');
+  stage.innerHTML = '';
+
+  const backToMenuBtn = gameButton('← Back to Arcade', () => {
+    stage.classList.add('hidden');
+    $('gamePickerGrid').classList.remove('hidden');
+  });
+
+  if (type === 'duopoll') {
+    stage.append(
+      el('h3', '', '📊 Quick Duo Poll'),
+      el('p', '', 'Ask a quick question so you both can vote & decide right in chat.')
+    );
+    const form = el('div', 'stage-form');
+    const qIn = el('input');
+    qIn.placeholder = 'Question (e.g. What should we eat tonight?)';
+    const o1 = el('input');
+    o1.placeholder = 'Option 1 (e.g. Biryani)';
+    const o2 = el('input');
+    o2.placeholder = 'Option 2 (e.g. Pizza)';
+    const o3 = el('input');
+    o3.placeholder = 'Option 3 (optional)';
+    const sendBtn = gameButton('Send Poll to Chat ↗', () => {
+      const question = qIn.value.trim();
+      const options = [o1.value.trim(), o2.value.trim(), o3.value.trim()].filter(Boolean);
+      if (!question || options.length < 2) return showToast('Enter a question and at least 2 options.');
+      sendWidgetMessage({ kind: 'poll', question, options, votes: {} }, '📊 Quick Poll');
+    }, true);
+    const acts = el('div', 'game-actions');
+    acts.append(sendBtn, backToMenuBtn);
+    form.append(qIn, o1, o2, o3, acts);
+    stage.append(form);
+  } else if (type === 'secretvault') {
+    stage.append(
+      el('h3', '', '🔐 Secret Passcode Lock'),
+      el('p', '', 'Send a locked secret message with a clue and 4-digit PIN.')
+    );
+    const form = el('div', 'stage-form');
+    const clueIn = el('input');
+    clueIn.placeholder = 'Hint / Clue (e.g. Year we first met)';
+    const pinIn = el('input');
+    pinIn.placeholder = 'Secret Passcode (2–6 digits/letters, e.g. 2024)';
+    pinIn.maxLength = 6;
+    const secretIn = el('input');
+    secretIn.placeholder = 'Hidden secret message inside…';
+    const sendBtn = gameButton('Lock & Send Secret ↗', () => {
+      const pin = pinIn.value.trim();
+      const secret = secretIn.value.trim();
+      if (pin.length < 2 || !secret) return showToast('Enter a passcode (2+ chars) and secret message.');
+      sendWidgetMessage(
+        { kind: 'vault', clue: clueIn.value.trim() || 'Unlock with passcode', pin, secret, unlockedBy: [] },
+        '🔐 Secret Passcode'
+      );
+    }, true);
+    const acts = el('div', 'game-actions');
+    acts.append(sendBtn, backToMenuBtn);
+    form.append(clueIn, pinIn, secretIn, acts);
+    stage.append(form);
+  } else if (type === 'duoquiz') {
+    stage.append(
+      el('h3', '', '❓ Duo Mini-Quiz'),
+      el('p', '', 'Challenge your partner with a quick custom trivia question!')
+    );
+    const form = el('div', 'stage-form');
+    const qIn = el('input');
+    qIn.placeholder = 'Quiz Question (e.g. What is my favorite coffee?)';
+    const o1 = el('input');
+    o1.placeholder = 'Choice A';
+    const o2 = el('input');
+    o2.placeholder = 'Choice B';
+    const o3 = el('input');
+    o3.placeholder = 'Choice C (optional)';
+    const ansSel = el('select');
+    ansSel.innerHTML = '<option value="0">Correct Answer: Choice A</option><option value="1">Correct Answer: Choice B</option><option value="2">Correct Answer: Choice C</option>';
+    const sendBtn = gameButton('Send Mini-Quiz ↗', () => {
+      const question = qIn.value.trim();
+      const options = [o1.value.trim(), o2.value.trim(), o3.value.trim()].filter(Boolean);
+      if (!question || options.length < 2) return showToast('Enter a question and at least 2 choices.');
+      const answerIdx = Math.min(options.length - 1, Number(ansSel.value) || 0);
+      sendWidgetMessage({ kind: 'quiz', question, options, answerIdx, answers: {} }, '❓ Duo Mini-Quiz');
+    }, true);
+    const acts = el('div', 'game-actions');
+    acts.append(sendBtn, backToMenuBtn);
+    form.append(qIn, o1, o2, o3, ansSel, acts);
+    stage.append(form);
+  }
+}
+
+if ($('pollQuickBtn')) {
+  $('pollQuickBtn').onclick = () => {
+    if (!activePeer) return;
+    openModal('gamesModal');
+    openInteractiveCreatorInStage('duopoll');
+  };
+}
+
+function buildInteractiveWidget(m) {
+  const w = m.widget;
+  const box = el('div', 'interactive-card');
+
+  if (w.kind === 'poll') {
+    box.append(el('div', 'ic-badge', '📊 QUICK DUO POLL'), el('div', 'ic-title', w.question));
+    const votes = w.votes || {};
+    const totalVotes = Object.keys(votes).length;
+    w.options.forEach((optText, idx) => {
+      const count = Object.values(votes).filter((v) => v === idx).length;
+      const pct = totalVotes ? Math.round((count / totalVotes) * 100) : 0;
+      const isMine = votes[cid] === idx;
+      const btn = el('button', 'poll-opt-btn' + (isMine ? ' voted' : ''));
+      btn.type = 'button';
+      const fill = el('span', 'poll-opt-fill');
+      fill.style.width = `${pct}%`;
+      const lbl = el('span', 'poll-opt-label', `${isMine ? '✓ ' : ''}${optText}`);
+      const cnt = el('span', 'poll-opt-count', `${count} (${pct}%)`);
+      btn.append(fill, lbl, cnt);
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        if (!activePeer) return;
+        socket.emit('widget-interact', { peerId: activePeer.id, id: m.id, action: 'vote', value: idx }, (res) => {
+          if (res?.error) showToast(res.error);
+        });
+      };
+      box.append(btn);
+    });
+  } else if (w.kind === 'vault') {
+    const unlocked = (w.unlockedBy || []).includes(cid) || m.from === cid;
+    box.append(el('div', 'ic-badge', unlocked ? '🔓 UNLOCKED SECRET' : '🔐 SECRET PASSCODE'), el('div', 'ic-title', `Clue: ${w.clue}`));
+    if (unlocked) {
+      box.append(el('div', 'vault-secret-box', w.secret));
+    } else {
+      const row = el('div', 'vault-pin-row');
+      const pinInput = el('input', 'vault-pin-input');
+      pinInput.placeholder = 'PIN';
+      pinInput.maxLength = 6;
+      pinInput.onclick = (e) => e.stopPropagation();
+      const unlockBtn = el('button', 'mini-pill-btn solid', 'Unlock');
+      unlockBtn.type = 'button';
+      unlockBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (!activePeer) return;
+        socket.emit('widget-interact', { peerId: activePeer.id, id: m.id, action: 'unlock', value: pinInput.value }, (res) => {
+          if (res?.error) showToast(res.error);
+          else showToast('🔓 Secret unlocked!');
+        });
+      };
+      row.append(pinInput, unlockBtn);
+      box.append(row);
+    }
+  } else if (w.kind === 'quiz') {
+    box.append(el('div', 'ic-badge', '❓ DUO MINI-QUIZ'), el('div', 'ic-title', w.question));
+    const answers = w.answers || {};
+    const myAns = answers[cid];
+    w.options.forEach((optText, idx) => {
+      const isCorrect = idx === w.answerIdx;
+      const pickedByMe = myAns === idx;
+      let suffix = '';
+      if (myAns !== undefined) {
+        if (isCorrect) suffix = ' ✅';
+        else if (pickedByMe) suffix = ' ❌';
+      }
+      const btn = el('button', 'poll-opt-btn' + (pickedByMe ? ' voted' : ''));
+      btn.type = 'button';
+      btn.append(el('span', 'poll-opt-label', optText + suffix));
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        if (!activePeer) return;
+        socket.emit('widget-interact', { peerId: activePeer.id, id: m.id, action: 'answer', value: idx }, (res) => {
+          if (res?.error) showToast(res.error);
+          else showToast(idx === w.answerIdx ? '🎉 Correct answer!' : '😅 Nice try!');
+        });
+      };
+      box.append(btn);
+    });
+  }
+  return box;
+}
+
+socket.on('widget-updated', ({ roomKey, id, widget }) => {
+  if (roomKey !== activeRoomKey) return;
+  const it = items[id];
+  if (!it) return;
+  it.m.widget = widget;
+  const oldCard = it.el.querySelector('.interactive-card');
+  const newCard = buildInteractiveWidget(it.m);
+  if (oldCard) oldCard.replaceWith(newCard);
+});
