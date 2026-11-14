@@ -811,3 +811,41 @@ footer textarea { border-radius: 18px; }
 .edited-label { color: var(--accent); font-size: 9px; font-style: italic; }
 .game-prompt { padding: 12px; border-radius: 13px; background: var(--accent-soft); border: 1px solid var(--border); margin: 8px 0 12px; font-weight: 600; line-height: 1.5; }
 .game-wait { display: inline-flex; align-items: center; padding: 9px 12px; border-radius: 12px; background: var(--accent-soft); color: var(--accent) !important; font-weight: 600; }
+
+/* ---------- Symbol Alignment & Compact Footer ---------- */
+.icon-svg-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.icon-btn.active-symbol {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.meta .act-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+@media (max-width: 420px) {
+  footer {
+    gap: 2px;
+    padding-left: 6px;
+    padding-right: 6px;
+  }
+  .tool-btn {
+    width: 30px;
+    height: 36px;
+  }
+  .tool-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+  footer textarea {
+    padding: 8px 11px;
+  }
+  .send-btn {
+    width: 38px;
+    height: 38px;
+  }
+}

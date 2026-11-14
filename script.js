@@ -70,12 +70,12 @@ document.querySelectorAll('[data-theme-choice]').forEach((b) => b.onclick = () =
 
 /* ---------- Synced Weather Atmosphere Engine ---------- */
 const WEATHER_META = {
-  clear:  { icon: '🌤️', label: 'Clear Sky' },
-  rain:   { icon: '🌧️', label: 'Cozy Rain' },
-  storm:  { icon: '⛈️', label: 'Thunder Storm' },
-  snow:   { icon: '❄️', label: 'Soft Snow' },
-  stars:  { icon: '🌌', label: 'Starry Night' },
-  petals: { icon: '🌸', label: 'Cherry Blossom' }
+  clear:  { icon: '🌤️', svg: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>', label: 'Clear Sky' },
+  rain:   { icon: '🌧️', svg: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M16 14v6"/><path d="M8 14v6"/><path d="M12 16v6"/></svg>', label: 'Cozy Rain' },
+  storm:  { icon: '⛈️', svg: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.326A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 .5 8.973"/><path d="m13 12-3 5h4l-3 5"/></svg>', label: 'Thunder Storm' },
+  snow:   { icon: '❄️', svg: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2" y1="12" x2="22" y2="12"/><line x1="12" y1="2" x2="12" y2="22"/><path d="m20 16-4-4 4-4"/><path d="m4 8 4 4-4 4"/><path d="m16 4-4 4-4-4"/><path d="m8 20 4-4 4 4"/></svg>', label: 'Soft Snow' },
+  stars:  { icon: '🌌', svg: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>', label: 'Starry Night' },
+  petals: { icon: '🌸', svg: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 16.5A4.5 4.5 0 1 1 7.5 12 4.5 4.5 0 1 1 12 7.5a4.5 4.5 0 1 1 4.5 4.5 4.5 4.5 0 1 1-4.5 4.5"/></svg>', label: 'Cherry Blossom' }
 };
 
 const canvas = $('weatherCanvas');
@@ -163,7 +163,7 @@ function applyWeather(weather, announceBy) {
   if (!WEATHER_META[weather]) weather = 'clear';
   currentWeather = weather;
   document.documentElement.dataset.weather = weather;
-  $('weatherIcon').textContent = WEATHER_META[weather].icon;
+  $('weatherIcon').innerHTML = WEATHER_META[weather].svg;
 
   $('weatherMenu').querySelectorAll('button').forEach((b) => {
     b.classList.toggle('active-opt', b.dataset.weather === weather);
@@ -223,10 +223,12 @@ $('moodBtn').onclick = (e) => {
   closeAllMenus();
   if (isHidden) $('moodMenu').classList.remove('hidden');
 };
+const DEFAULT_MOOD_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>';
 $('moodMenu').querySelectorAll('button').forEach((btn) => {
   btn.onclick = () => {
     myMood = btn.dataset.mood;
-    $('myMoodIcon').textContent = myMood ? myMood.split(' ')[0] : '😊';
+    $('myMoodIcon').innerHTML = DEFAULT_MOOD_SVG;
+    $('moodBtn').classList.toggle('active-symbol', !!myMood);
     socket.emit('mood', myMood);
     showToast(myMood ? `Mood set to ${myMood}` : 'Mood cleared');
   };
@@ -393,7 +395,7 @@ function render(m) {
   d.dataset.id = m.id;
 
   const rBar = el('div', 'react-bar');
-  ['❤️', '😂', '👍', '😮', '😢', '🔥'].forEach((emo) => {
+  ['❤️', '😂', '👍', '😮', '😢', '🔥', '💩'].forEach((emo) => {
     const rb = el('button', '', emo);
     rb.onclick = (e) => {
       e.stopPropagation();
@@ -439,7 +441,8 @@ function render(m) {
     meta.append(el('span', 'vanish-indicator', '⏱️ 10s'));
   }
 
-  const rb = el('button', 'act-btn', '↩');
+  const rb = el('button', 'act-btn');
+  rb.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>';
   rb.title = 'Reply';
   rb.onclick = (e) => {
     e.stopPropagation();
@@ -602,7 +605,7 @@ function setReply(r) {
 $('rClose').onclick = () => setReply(null);
 
 /* ---------- Emoji Picker ---------- */
-Array.from('😀😁😂🤣😊😍😘😎🤔😅😭😡🥳😴🤗🙄😉😇🥺😢👍👎👏🙌🙏💪👋🤝❤️💔🔥✨🎉🎂🍕☕🌹⭐💯✅❌👀🚀🌙☀️🎵').forEach((ch) => {
+Array.from('😀😁😂🤣😊😍😘😎🤔😅😭😡🥳😴🤗🙄😉😇🥺😢💩👍👎👏🙌🙏💪👋🤝❤️💔🔥✨🎉🎂🍕☕🌹⭐💯✅❌👀🚀🌙☀️🎵').forEach((ch) => {
   const b = el('button', '', ch);
   b.type = 'button';
   b.onclick = () => { $('input').value += ch; $('input').focus(); };
