@@ -1751,3 +1751,14 @@ footer textarea:focus { border-color: var(--accent); }
   filter: none;
   pointer-events: auto;
 }
+
+/* ---------- Theme-Synced Avatar Frame & Subtle Backdrop ---------- */
+.avatar-option svg,
+.avatar svg,
+.portrait svg {
+  background: radial-gradient(circle at 30% 25%, var(--accent-soft), rgba(120, 130, 155, 0.14));
+  border-radius: 50%;
+}
+.avatar-option[aria-pressed="true"] svg {
+  box-shadow: 0 4px 12px var(--accent-soft);
+}
