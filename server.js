@@ -6,20 +6,37 @@ const { Server } = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { maxHttpBufferSize: 5e6 });
-app.use(express.static(__dirname));
+for (const file of ['index.html', 'style.css', 'script.js']) {
+  app.get(file === 'index.html' ? '/' : '/' + file, (req, res) => res.sendFile(__dirname + '/' + file));
+}
 
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', uptime: process.uptime() });
 });
 
-const rooms = {}; // passkey -> { users: { socketId: {name, cid, mood} }, history: [], weather: 'clear' }
+const rooms = Object.create(null); // passkey -> { users: { socketId: {name, cid, mood} }, history: [], weather: 'clear' }
 const clip = (v, n) => String(v || '').slice(0, n);
+function publicGame(g, cid) {
+  if (!g) return null;
+  if (g.type !== 'rps') return g;
+  return { ...g, choices: Object.fromEntries(Object.keys(g.choices).map(id => [id, id === cid ? g.choices[id] : 'locked'])) };
+}
+function broadcastGame(room) {
+  const r = rooms[room];
+  for (const [id, user] of Object.entries(r.users)) io.to(id).emit('game-state', publicGame(r.game, user.cid));
+}
 const VALID_WEATHERS = ['clear', 'rain', 'storm', 'snow', 'stars', 'petals'];
 
 io.on('connection', (socket) => {
   let code = null, me = null;
 
-  socket.on('join', ({ name, room, cid, mood }, cb) => {
+  socket.on('join', (data = {}, cb = () => {}) => {
+    if (!data || typeof data !== 'object') return cb({ error: 'Invalid join request.' });
+    let { name, room, cid, mood, gender } = data;
+    gender = gender === 'female' ? 'female' : 'male';
+    cid = clip(cid, 100).trim();
+    if (!cid) return cb({ error: 'Missing client identity.' });
+    if (code && (code !== String(room).trim() || me?.cid !== cid)) return cb({ error: 'Reconnect before changing rooms.' });
     name = clip(name, 24).trim();
     room = clip(room, 64).trim();
     if (!name || room.length < 4) return cb({ error: 'Enter a name and a passkey of 4+ characters.' });
@@ -27,17 +44,18 @@ io.on('connection', (socket) => {
     const r = (rooms[room] = rooms[room] || { users: {}, history: [], weather: 'clear', game: null });
 
     for (const id of Object.keys(r.users)) {
-      if (r.users[id].cid === cid) {
+      if (id !== socket.id && r.users[id].cid === cid) {
         delete r.users[id];
         const old = io.sockets.sockets.get(id);
         if (old) old.disconnect(true);
       }
     }
-    if (Object.keys(r.users).length >= 2) return cb({ error: 'This room already has 2 people.' });
+    if (!r.users[socket.id] && Object.keys(r.users).length >= 2) return cb({ error: 'This room already has 2 people.' });
 
-    me = { name, cid, mood: clip(mood, 32) };
+    me = { name, cid, gender, mood: clip(mood, 32) };
     code = room;
     r.users[socket.id] = me;
+    if (r.game?.players && !r.game.players.includes(cid)) r.game = null;
     socket.join(room);
 
     const peer = Object.values(r.users).find((u) => u.cid !== cid);
@@ -46,11 +64,12 @@ io.on('connection', (socket) => {
       history: r.history,
       peer: peer ? peer.name : null,
       peerMood: peer ? peer.mood : '',
+      peerGender: peer ? peer.gender : null,
       weather: r.weather || 'clear',
-      game: r.game || null
+      game: publicGame(r.game, cid)
     });
 
-    socket.to(room).emit('presence', { online: true, name, mood: me.mood });
+    socket.to(room).emit('presence', { online: true, name, gender: me.gender, mood: me.mood });
     const ids = r.history.filter((m) => m.from !== cid && m.status === 'sent').map((m) => (m.status = 'delivered', m.id));
     if (ids.length) socket.to(room).emit('status', { ids, status: 'delivered' });
   });
@@ -62,7 +81,8 @@ io.on('connection', (socket) => {
     socket.to(code).emit('weather', { weather: cleanW, by: me.name });
   });
 
-  socket.on('msg', (m, cb) => {
+  socket.on('msg', (m = {}, cb) => {
+    if (!m || typeof m !== 'object') return;
     if (!code || !me) return;
     const r = rooms[code];
     const peerOnline = Object.keys(r.users).length > 1;
@@ -79,6 +99,8 @@ io.on('connection', (socket) => {
       time: Date.now(),
       status: peerOnline ? 'delivered' : 'sent',
     };
+    if (!clean.id || (!clean.text.trim() && !clean.image)) return;
+    if (r.history.some(item => item.id === clean.id)) return cb && cb(clean.status);
     r.history.push(clean);
     if (r.history.length > 200) r.history.shift();
     socket.to(code).emit('msg', clean);
@@ -101,7 +123,7 @@ io.on('connection', (socket) => {
     socket.to(code).emit('status', { ids, status: 'seen' });
   });
 
-  socket.on('react', ({ id, emoji }) => {
+  socket.on('react', ({ id, emoji } = {}) => {
     if (!code || !id) return;
     const cleanEmoji = clip(emoji, 8);
     const msg = rooms[code].history.find((m) => m.id === id);
@@ -109,7 +131,7 @@ io.on('connection', (socket) => {
     socket.to(code).emit('react', { id, emoji: cleanEmoji });
   });
 
-  socket.on('edit-message', ({ id, text }, cb) => {
+  socket.on('edit-message', ({ id, text } = {}, cb) => {
     if (!code || !me || !id) return;
     const r = rooms[code];
     const msg = r.history.find((item) => item.id === id);
@@ -122,7 +144,7 @@ io.on('connection', (socket) => {
     cb && cb({ ok: true });
   });
 
-  socket.on('delete-message', ({ id }, cb) => {
+  socket.on('delete-message', ({ id } = {}, cb) => {
     if (!code || !me || !id) return;
     const r = rooms[code];
     const index = r.history.findIndex((item) => item.id === id);
@@ -133,7 +155,7 @@ io.on('connection', (socket) => {
   });
 
   // DuoPlay events: the server is authoritative for turn order and results.
-  socket.on('game-start', ({ type }, cb) => {
+  socket.on('game-start', ({ type } = {}, cb) => {
     if (!code || !me) return;
     const valid = ['truth', 'tictactoe', 'rps'];
     if (!valid.includes(type)) return cb && cb({ error: 'Unknown game.' });
@@ -144,29 +166,32 @@ io.on('connection', (socket) => {
       const peer = Object.values(r.users).find(u => u.cid !== me.cid);
       r.game.marks[peer.cid] = 'O';
     } else if (type === 'rps') {
-      r.game = { type, round: 1, choices: {}, scores: {} };
+      r.game = { type, players: Object.values(r.users).map(u => u.cid), round: 1, choices: {}, scores: {} };
     } else {
-      r.game = { type, turn: me.cid, prompt: null, completed: false };
+      r.game = { type, players: Object.values(r.users).map(u => u.cid), turn: me.cid, prompt: null, completed: false };
     }
-    io.to(code).emit('game-state', r.game);
+    broadcastGame(code);
     cb && cb({ ok: true });
   });
 
   socket.on('game-action', (payload, cb) => {
     if (!code || !me || !payload) return;
     const r = rooms[code], g = r.game;
+    if (Object.keys(r.users).length !== 2) return cb && cb({ error: 'Wait for your friend to reconnect.' });
     if (!g || g.type !== payload.type) return cb && cb({ error: 'No active game.' });
     if (g.type === 'tictactoe') {
-      const i = Number(payload.index);
+      if (g.result) return cb && cb({ error: 'This round has finished.' });
+      const i = payload.index;
       if (!Number.isInteger(i) || i < 0 || i > 8 || g.turn !== me.cid || g.board[i]) return cb && cb({ error: 'That move is not available.' });
       g.board[i] = g.marks[me.cid];
       const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-      const winner = lines.some(line => line.every(n => g.board[n] === g.board[line[0]])) ? me.cid : null;
+      const winner = lines.some(line => g.board[line[0]] && line.every(n => g.board[n] === g.board[line[0]])) ? me.cid : null;
       const draw = !winner && g.board.every(Boolean);
       g.result = winner ? `${me.name} wins!` : draw ? 'It is a draw!' : null;
       if (!winner && !draw) g.turn = g.players.find(id => id !== me.cid);
-      io.to(code).emit('game-state', g);
+      broadcastGame(code);
     } else if (g.type === 'rps') {
+      if (g.matchWinner) return cb && cb({ error: 'Match finished. Reset to play again.' });
       const choice = payload.choice;
       if (!['rock', 'paper', 'scissors'].includes(choice)) return cb && cb({ error: 'Invalid choice.' });
       if (g.choices[me.cid]) return cb && cb({ error: 'You already chose this round.' });
@@ -178,11 +203,12 @@ io.on('connection', (socket) => {
         let winner = ca === cbChoice ? null : ((ca === 'rock' && cbChoice === 'scissors') || (ca === 'paper' && cbChoice === 'rock') || (ca === 'scissors' && cbChoice === 'paper') ? a : b);
         g.scores[a] = (g.scores[a] || 0) + (winner === a ? 1 : 0);
         g.scores[b] = (g.scores[b] || 0) + (winner === b ? 1 : 0);
+        g.matchWinner = [a, b].find(id => g.scores[id] >= 2) || null;
         g.lastRound = { choices: { [a]: ca, [b]: cbChoice }, winner };
         g.choices = {};
         g.round += 1;
       }
-      io.to(code).emit('game-state', g);
+      broadcastGame(code);
     } else if (g.type === 'truth') {
       if (g.turn !== me.cid) return cb && cb({ error: 'Wait for your turn.' });
       const action = payload.action;
@@ -190,13 +216,14 @@ io.on('connection', (socket) => {
       g.prompt = clip(payload.prompt, 240);
       g.lastAction = action;
       g.turn = Object.values(r.users).map(u => u.cid).find(id => id !== me.cid);
-      io.to(code).emit('game-state', g);
+      broadcastGame(code);
     }
     cb && cb({ ok: true });
   });
 
   socket.on('game-reset', () => {
     if (!code || !me) return;
+    if (Object.keys(rooms[code].users).length !== 2) return;
     const g = rooms[code].game;
     if (!g) return;
     if (g.type === 'tictactoe') {
@@ -204,11 +231,11 @@ io.on('connection', (socket) => {
       g.turn = me.cid;
       g.result = null;
     } else if (g.type === 'rps') {
-      g.round = 1; g.choices = {}; g.scores = {}; g.lastRound = null;
+      g.round = 1; g.choices = {}; g.scores = {}; g.lastRound = null; g.matchWinner = null;
     } else {
       g.turn = me.cid; g.prompt = null; g.lastAction = null;
     }
-    io.to(code).emit('game-state', g);
+    broadcastGame(code);
   });
 
   socket.on('mood', (mood) => {

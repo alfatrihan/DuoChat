@@ -5,6 +5,17 @@ const socket = io();
 const rnd = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 const cid = sessionStorage.getItem('cid') || (sessionStorage.cid = rnd());
 
+// Original lightweight SVG artwork; no external avatar service or image download.
+function avatarArt(gender) {
+  if (!gender) return '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="48" fill="#25314c"/><circle cx="50" cy="38" r="15" fill="#a8b6cf"/><path d="M20 90V78a30 30 0 0 1 60 0v12" fill="#a8b6cf"/></svg>';
+  const face = '<ellipse cx="50" cy="43" rx="17" ry="21" fill="#c99570"/><path d="M42 42h2m12 0h2" stroke="#382a29" stroke-width="3" stroke-linecap="round"/><path d="M46 53q4 4 8 0" fill="none" stroke="#80503f" stroke-width="2" stroke-linecap="round"/>';
+  const body = gender === 'female'
+    ? '<path d="M12 100q3-30 15-43V36Q27 8 50 8t24 28v21q13 13 15 43" fill="#263c61"/>' + face + '<path d="M27 39Q25 10 49 8q27-1 27 32L64 28q-17 4-29-5l-8 17v18q8 12 24 19 13-7 24-20l14 43H12l15-42" fill="#637caf"/><path d="M30 54q5 15 21 23 15-9 20-23M51 77q8 10 22 13" fill="none" stroke="#a8bce0" stroke-width="2.5" stroke-linecap="round"/><path d="M26 36q2-20 20-23" fill="none" stroke="#8da4cf" stroke-width="2"/><circle cx="67" cy="73" r="3" fill="#e5c78b"/><circle cx="67" cy="73" r="1.2" fill="#fff2ce"/>'
+    : '<path d="M12 100V85q4-17 28-20h20q25 3 28 20v15" fill="#dddcd3"/><path d="M42 61v11l8 7 8-7V61" fill="#b78260"/>' + face + '<path d="M32 42q-8-24 7-30 13-10 30 0l5-4q1 13-7 20l-3 12-3-13q-15 5-25-2l-1 17" fill="#292632"/><path d="M36 22q12-13 29-7M41 25q10-8 20-6" fill="none" stroke="#514456" stroke-width="2.4" stroke-linecap="round"/><path d="M35 49q3 14 15 17 13-3 16-17l-7 9-9 4-9-4" fill="#49352f" opacity=".8"/><path d="M46 53q4 4 8 0" fill="none" stroke="#f0bb96" stroke-width="1.6" stroke-linecap="round"/><path d="M40 65l10 13 10-13M50 78v22" fill="none" stroke="#a9ada9" stroke-width="2"/><path d="M40 65l10 9 10-9" fill="none" stroke="#faf9f2" stroke-width="3"/><circle cx="54" cy="84" r="1.5" fill="#a58c64"/><circle cx="54" cy="91" r="1.5" fill="#a58c64"/>';
+  return '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="50" fill="' + (gender === 'female' ? '#1e304b' : '#35304f') + '"/><circle cx="76" cy="22" r="27" fill="#ffffff" opacity=".04"/>' + body + '</svg>';
+}
+document.querySelectorAll('[data-avatar]').forEach(node => node.innerHTML = avatarArt(node.dataset.avatar));
+let peerGender = null;
 let creds = null;
 let peerName = '';
 let peerOnline = false, peerTyping = false;
@@ -60,6 +71,7 @@ $('themeBtn').onclick = () => {
 function openModal(id) { $(id).classList.remove('hidden'); }
 function closeModal(id) { $(id).classList.add('hidden'); }
 $('themePresetsBtn').onclick = () => { closeAllMenus(); openModal('themesModal'); };
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { document.querySelectorAll('.modal').forEach(m => m.classList.add('hidden')); closeAllMenus(); } });
 document.querySelectorAll('[data-close]').forEach((b) => b.onclick = () => closeModal(b.dataset.close));
 document.querySelectorAll('.modal').forEach((m) => m.addEventListener('click', (e) => { if (e.target === m) m.classList.add('hidden'); }));
 document.querySelectorAll('[data-theme-choice]').forEach((b) => b.onclick = () => {
@@ -245,15 +257,20 @@ $('moreBtn').onclick = (e) => {
 function doJoin(onDone) {
   socket.emit('join', { ...creds, mood: myMood }, (res) => {
     if (res.error) return onDone(res.error);
+    Object.values(items).forEach(it => clearTimeout(it.vanishTimer));
     $('msgs').innerHTML = '';
     Object.keys(items).forEach((k) => delete items[k]);
     const other = [...res.history].reverse().find((m) => m.from !== cid);
     peerName = res.peer || (other && other.name) || '';
     peerOnline = !!res.peer;
-    if (res.peerMood) updatePeerMood(res.peerMood);
+    peerGender = res.peerGender || null;
+    updatePeerMood(res.peerMood || '');
     res.history.forEach(render);
+    if (!res.game) { gameState = null; activeGame = null; $('gameStage').classList.add('hidden'); }
     if (res.game) {
+      gameState = res.game;
       activeGame = res.game.type;
+      openModal('gamesModal');
       $('gameStage').classList.remove('hidden');
       renderGame(res.game);
     }
@@ -265,7 +282,10 @@ function doJoin(onDone) {
 
 $('joinForm').onsubmit = (e) => {
   e.preventDefault();
-  creds = { name: $('name').value.trim(), room: $('room').value.trim(), cid };
+  const gender = document.querySelector('input[name=gender]:checked')?.value;
+  if (!gender) return;
+  creds = { name: $('name').value.trim(), room: $('room').value.trim(), cid, gender };
+  $('err').textContent = '';
   doJoin((err, roomWeather) => {
     if (err) { creds = null; $('err').textContent = err; return; }
     $('join').classList.add('hidden');
@@ -277,12 +297,20 @@ $('joinForm').onsubmit = (e) => {
 };
 
 socket.on('connect', () => { if (creds) doJoin((err, w) => { if (!err && w) applyWeather(w, null); }); });
-socket.on('disconnect', () => { peerOnline = false; peerTyping = false; updateHeader(true); });
+socket.on('disconnect', () => { peerOnline = false; peerTyping = false; updateHeader(true); if (gameState) renderGame(gameState); });
 
 /* ---------- Header / Presence / Mood / Synced Weather ---------- */
 function updateHeader(reconnecting) {
   $('peerName').textContent = peerName || 'Waiting for friend…';
-  $('avatar').textContent = (peerName || '?')[0].toUpperCase();
+  $('avatar').innerHTML = avatarArt(peerGender);
+  $('myPortrait').innerHTML = avatarArt(creds?.gender);
+  $('peerPortrait').innerHTML = avatarArt(peerGender);
+  $('myDisplayName').textContent = creds?.name || 'You';
+  $('friendDisplayName').textContent = peerName || 'Friend';
+  const connected = socket.connected && peerOnline && !reconnecting;
+  $('duoConnection').classList.toggle('connected', connected);
+  $('connectionLabel').textContent = !socket.connected ? 'Reconnecting…' : connected ? 'Connected' : 'Waiting for friend';
+  $('friendPresence').textContent = connected ? 'Online · অনলাইন' : peerName ? 'Offline · অফলাইন' : 'Waiting…';
   const s = $('status');
   s.textContent = reconnecting ? 'Reconnecting…' : peerTyping ? 'typing…' : peerOnline ? 'Online' : 'Offline';
   s.className = peerOnline && !reconnecting ? 'on' : 'off';
@@ -301,12 +329,14 @@ function updatePeerMood(mood) {
   }
 }
 
-socket.on('presence', ({ online, name, mood }) => {
+socket.on('presence', ({ online, name, mood, gender }) => {
   peerOnline = online;
   if (name) peerName = name;
+  if (gender) peerGender = gender;
   if (mood !== undefined) updatePeerMood(mood);
   if (!online) { peerTyping = false; updatePeerMood(''); }
   updateHeader();
+  if (gameState) renderGame(gameState);
 });
 socket.on('typing', (v) => { peerTyping = v; updateHeader(); });
 socket.on('mood', (mood) => updatePeerMood(mood));
@@ -336,7 +366,7 @@ function triggerShake() {
 $('inviteBtn').onclick = () => {
   if (!creds) return;
   const link = `${window.location.origin}${window.location.pathname}?room=${encodeURIComponent(creds.room)}`;
-  navigator.clipboard.writeText(link).then(() => {
+  (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(() => {
     showToast('🔗 Invite link copied!');
   }).catch(() => {
     showToast(`Passkey: ${creds.room}`);
@@ -359,6 +389,7 @@ const TICKS = { sending: '🕒', sent: '✓', delivered: '✓✓', seen: '✓✓
 function setStatus(id, status) {
   const it = items[id];
   if (!it) return;
+  it.m.status = status;
   if (it.tick) {
     it.tick.textContent = TICKS[status] || '✓';
     it.tick.className = 'tick ' + status;
@@ -390,6 +421,7 @@ function openImage(src) {
 }
 
 function render(m) {
+  if (items[m.id]) return;
   const mine = m.from === cid;
   const d = el('div', 'm ' + (mine ? 'me' : 'them') + (m.spoiler ? ' spoiler' : '') + (m.reaction ? ' has-react' : ''));
   d.dataset.id = m.id;
@@ -541,6 +573,7 @@ function scrollDown() { const c = $('msgs'); c.scrollTop = c.scrollHeight; }
 
 /* ---------- Sending ---------- */
 function send(image) {
+  if (!creds || !socket.connected) return showToast('Connection lost. Please wait before sending.');
   const input = $('input');
   const text = image ? '' : input.value.trim();
   if (!text && !image) return;
@@ -619,6 +652,7 @@ $('file').onchange = (e) => {
   const f = e.target.files[0];
   e.target.value = '';
   if (!f) return;
+  if (!f.type.startsWith('image/') || f.size > 15 * 1024 * 1024) return showToast('Choose an image smaller than 15 MB.');
   const reader = new FileReader();
   reader.onload = () => {
     const img = new Image();
@@ -630,8 +664,10 @@ $('file').onchange = (e) => {
       c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
       send(c.toDataURL('image/jpeg', 0.75));
     };
+    img.onerror = () => showToast('This image could not be opened.');
     img.src = reader.result;
   };
+  reader.onerror = () => showToast('Could not read this file.');
   reader.readAsDataURL(f);
 };
 
@@ -657,18 +693,21 @@ const DARES = [
   'Make up a funny nickname for the other player.'
 ];
 let activeGame = null;
-$('gamesBtn').onclick = () => { openModal('gamesModal'); $('gameStage').classList.add('hidden'); };
+let gameState = null;
+$('gamesBtn').onclick = () => { openModal('gamesModal'); if (gameState) renderGame(gameState); };
 document.querySelectorAll('[data-game]').forEach((b) => b.onclick = () => {
   const type = b.dataset.game;
   socket.emit('game-start', { type }, (res) => {
     if (res && res.error) return showToast(res.error);
-    activeGame = type;
-    $('gameStage').classList.remove('hidden');
-    renderGame({ type });
+    // The authoritative game-state event renders both players.
+    openModal('gamesModal');
   });
 });
 socket.on('game-state', (state) => {
+  gameState = state;
   activeGame = state.type;
+  closeModal('themesModal');
+  openModal('gamesModal');
   $('gameStage').classList.remove('hidden');
   renderGame(state);
 });
@@ -684,13 +723,15 @@ function gameTitle(title, desc) {
   return stage;
 }
 function renderGame(g) {
+  gameState = g;
+  $('gameStage').classList.remove('hidden');
   const stage = $('gameStage');
   if (g.type === 'truth') {
     const myTurn = g.turn === cid;
     const node = gameTitle('♡ Truth or Dare', myTurn ? 'Your turn — choose honestly or boldly.' : 'Your friend is choosing. Get ready!');
     if (g.prompt) node.append(el('div','game-prompt',`${g.lastAction === 'dare' ? '⚡ Dare' : g.lastAction === 'truth' ? '♡ Truth' : '↷'}: ${g.prompt}`));
     const actions = el('div','game-actions');
-    if (myTurn) {
+    if (myTurn && peerOnline && socket.connected) {
       actions.append(
         gameButton('♡ Truth', () => sendTruthDare('truth', TRUTHS[Math.floor(Math.random()*TRUTHS.length)]), true),
         gameButton('⚡ Dare', () => sendTruthDare('dare', DARES[Math.floor(Math.random()*DARES.length)])),
@@ -705,13 +746,14 @@ function renderGame(g) {
     const board = el('div','game-board');
     (g.board || Array(9).fill('')).forEach((value, index) => {
       const b = el('button','game-cell',value);
-      b.disabled = !!value || !!g.result || g.turn !== cid;
+      b.disabled = !peerOnline || !socket.connected || !!value || !!g.result || g.turn !== cid;
+      b.setAttribute('aria-label', `Cell ${index + 1}: ${value || 'empty'}`);
       b.onclick = () => socket.emit('game-action',{type:'tictactoe',index},(res)=>res&&res.error&&showToast(res.error));
       board.append(b);
     });
     node.append(board, gameButton(g.result ? '↻ Play again' : '↻ Restart round', () => socket.emit('game-reset'), true));
   } else if (g.type === 'rps') {
-    const node = gameTitle('✊ Rock Paper Scissors', `Round ${Math.max(1,(g.round||1) - (g.lastRound ? 1 : 0))} · You ${g.scores?.[cid]||0} — Friend ${Object.entries(g.scores||{}).filter(([id])=>id!==cid).reduce((n,[,v])=>n+v,0)}`);
+    const node = gameTitle('✊ Rock Paper Scissors', `Round ${g.round || 1} · You ${g.scores?.[cid]||0} — Friend ${Object.entries(g.scores||{}).filter(([id])=>id!==cid).reduce((n,[,v])=>n+v,0)}`);
     if (g.lastRound) {
       const mine = g.lastRound.choices?.[cid];
       const other = Object.entries(g.lastRound.choices||{}).find(([id])=>id!==cid)?.[1];
@@ -720,10 +762,11 @@ function renderGame(g) {
     const choices = el('div','rps-choices');
     [['rock','✊','Rock'],['paper','✋','Paper'],['scissors','✌️','Scissors']].forEach(([v,emo,label])=>{
       const b=el('button','',emo); b.append(el('small','',label));
-      b.disabled=!!(g.choices && g.choices[cid]);
+      b.disabled=!peerOnline || !socket.connected || !!g.matchWinner || !!(g.choices && g.choices[cid]);
       b.onclick=()=>socket.emit('game-action',{type:'rps',choice:v},(res)=>res&&res.error&&showToast(res.error));
       choices.append(b);
     });
+    if (g.matchWinner) node.append(el('div','game-prompt',g.matchWinner === cid ? '🏆 You won the match!' : '🏆 Friend won the match!'));
     node.append(choices);
     if (g.choices && Object.keys(g.choices).length) node.append(el('p','game-wait','Choice locked in — waiting for the other player…'));
     node.append(gameButton('↻ Reset match',()=>socket.emit('game-reset'),true));

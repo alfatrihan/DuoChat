@@ -38,6 +38,11 @@
         </button>
       </div>
 
+      <fieldset class="avatar-picker">
+        <legend>Choose your avatar · আপনার অ্যাভাটার</legend>
+        <label><input type="radio" name="gender" value="male" required><span class="picker-art" data-avatar="male"></span><b>Male · পুরুষ</b><small>Modern thobe</small></label>
+        <label><input type="radio" name="gender" value="female" required><span class="picker-art" data-avatar="female"></span><b>Female · নারী</b><small>Elegant hijab</small></label>
+      </fieldset>
       <button class="primary btn-glow" type="submit">
         <span>Enter Private Room</span>
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
@@ -51,6 +56,11 @@
     <!-- Live Weather Canvas Overlay (Synced between both users) -->
     <canvas id="weatherCanvas"></canvas>
 
+    <div class="duo-connection" id="duoConnection">
+      <div class="duo-person"><div class="portrait my-portrait" id="myPortrait"></div><b id="myDisplayName">You</b><small>You · আপনি</small></div>
+      <div class="connection-bridge"><span class="connection-label" id="connectionLabel" role="status">Waiting for friend</span><small>Your private space</small></div>
+      <div class="duo-person"><div class="portrait peer-portrait" id="peerPortrait"></div><b id="friendDisplayName">Friend</b><small id="friendPresence">Waiting…</small></div>
+    </div>
     <header>
       <div class="avatar-wrap">
         <div class="avatar" id="avatar">?</div>
