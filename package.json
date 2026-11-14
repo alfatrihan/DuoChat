@@ -1,6 +1,6 @@
 {
   "name": "duo-chat",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Private real-time 1-on-1 chat with Express and Socket.io",
   "main": "server.js",
   "scripts": {
