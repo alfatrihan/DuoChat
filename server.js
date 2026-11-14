@@ -10,7 +10,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { maxHttpBufferSize: 5e6 });
 
-for (const file of ['index.html', 'style.css', 'script.js', 'developer-photo.png']) {
+for (const file of ['index.html', 'style.css', 'script.js', 'developer-photo.png', 'logo.png', 'favicon-32.png', 'favicon.ico', 'apple-touch-icon.png']) {
   app.get(file === 'index.html' ? '/' : '/' + file, (req, res) => res.sendFile(path.join(__dirname, file)));
 }
 
