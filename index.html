@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>DuoChat — Private Messenger & DuoPlay</title>
+  <title>DuoChat — Private Messenger, Quick Rooms & DuoPlay</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Authentication Screen -->
+  <!-- Authentication & Quick Room Screen -->
   <section id="auth" class="screen">
     <form id="authForm" class="card glass">
       <div class="logo-wrap">
@@ -19,17 +19,45 @@
         </svg>
       </div>
       <h1>DuoChat</h1>
-      <p id="authDescription">Private conversations & mini-games with your circle.</p>
+      <p id="authDescription">Private conversations, instant rooms & mini-games.</p>
 
-      <div class="auth-tabs">
+      <!-- Main Mode Tabs: Sign in | Create account | Chat Room -->
+      <div class="auth-tabs primary-mode-tabs">
         <button type="button" id="loginTab" class="game-action primary-action">Sign in</button>
         <button type="button" id="registerTab" class="game-action">Create account</button>
+        <button type="button" id="roomTab" class="game-action">Chat Room</button>
       </div>
 
-      <input id="username" placeholder="Unique username (e.g. ahmad_99)" minlength="3" maxlength="24" pattern="[A-Za-z0-9_]{3,24}" required autocomplete="username">
-      <input id="password" type="password" placeholder="Password (8+ characters)" minlength="8" maxlength="128" required autocomplete="current-password">
+      <!-- Account Login / Register Fields -->
+      <div id="accountAuthFields">
+        <input id="username" placeholder="Unique username (e.g. ahmad_99)" minlength="3" maxlength="24" pattern="[A-Za-z0-9_]{3,24}" required autocomplete="username">
+        <input id="password" type="password" placeholder="Password (8+ characters)" minlength="8" maxlength="128" required autocomplete="current-password">
+      </div>
 
-      <div id="registerFields" class="hidden">
+      <!-- Quick Room Sub-options (Create Room / Join Room) -->
+      <div id="roomModeFields" class="hidden">
+        <div class="auth-tabs sub-room-tabs">
+          <button type="button" id="createRoomSubTab" class="game-action primary-action">Create Room</button>
+          <button type="button" id="joinRoomSubTab" class="game-action">Join Room</button>
+        </div>
+
+        <div id="createRoomBox" class="room-code-card">
+          <div class="room-code-label">YOUR ROOM CODE</div>
+          <div class="room-code-row">
+            <span id="generatedRoomCode" class="room-code-display">------</span>
+            <button type="button" id="copyRoomCodeBtn" class="mini-pill-btn" title="Copy room code">Copy</button>
+            <button type="button" id="regenRoomCodeBtn" class="mini-pill-btn" title="Generate new code">↻</button>
+          </div>
+          <small class="room-code-hint">Share this code with your partner so they can join directly.</small>
+        </div>
+
+        <div id="joinRoomBox" class="hidden">
+          <input id="joinRoomCodeInput" placeholder="Enter 6-character Room Code" maxlength="8" autocomplete="off" style="text-transform: uppercase; letter-spacing: 0.14em; font-weight: 700; text-align: center;">
+        </div>
+      </div>
+
+      <!-- Shared Profile Name & Avatar Selection (Used by Create Account, Create Room & Join Room) -->
+      <div id="profileSetupFields" class="hidden">
         <input id="accountName" placeholder="Display name" maxlength="24" autocomplete="nickname">
         <div class="auth-tabs">
           <button type="button" class="game-action" id="maleAvatars">Brothers</button>
@@ -95,7 +123,7 @@
     </div>
   </section>
 
-  <!-- Messenger Multi-Inbox Workspace -->
+  <!-- Messenger Multi-Inbox & Quick Room Workspace -->
   <section id="app" class="screen hidden">
     <!-- Toast Notification Banner -->
     <div id="toast" class="toast hidden"></div>
@@ -201,12 +229,15 @@
 
           <div class="duo-connection" id="duoConnection">
             <div class="duo-person"><div class="portrait my-portrait" id="myPortrait"></div><b id="myDisplayName">You</b></div>
-            <div class="connection-bridge"><span class="connection-label" id="connectionLabel" role="status">Offline</span></div>
+            <div class="connection-bridge">
+              <span class="connection-label" id="connectionLabel" role="status">Offline</span>
+              <button type="button" id="activeRoomCodeBadge" class="room-pill-badge hidden" title="Click to copy Room Code">ROOM: ------</button>
+            </div>
             <div class="duo-person"><div class="portrait peer-portrait" id="peerPortrait"></div><b id="friendDisplayName">Friend</b></div>
           </div>
 
           <header>
-            <button id="backToInboxBtn" class="icon-btn back-btn" title="Back to chats" aria-label="Back to chats">
+            <button id="backToInboxBtn" class="icon-btn back-btn" title="Back" aria-label="Back">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
             </button>
 
@@ -256,6 +287,7 @@
                   <button id="themeBtn">◐ Light / Dark Mode</button>
                   <button id="themePresetsBtn">✦ Theme Gallery</button>
                   <button id="clearBtn" class="danger-text">⌫ Clear Chat</button>
+                  <button id="leaveRoomBtn" class="danger-text hidden">🚪 Leave Room</button>
                 </div>
               </div>
             </div>
@@ -357,7 +389,7 @@
         </div>
 
         <div id="gameStage" class="game-stage hidden"></div>
-        <p class="game-footnote">Real-time synced between you and your friend.</p>
+        <p class="game-footnote">Real-time synced between you and your partner.</p>
       </div>
     </div>
 

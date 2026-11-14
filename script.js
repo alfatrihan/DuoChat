@@ -660,6 +660,10 @@ function openConversation(peerId) {
 }
 
 $('backToInboxBtn').onclick = () => {
+  if (isQuickRoomMode) {
+    leaveQuickRoomSession();
+    return;
+  }
   $('messengerShell').classList.remove('mobile-chat-open');
   if (activePeer) {
     socket.emit('typing', { peerId: activePeer.id, typing: false });
@@ -1393,10 +1397,39 @@ function beep(freq = 880) {
   } catch (e) {}
 }
 
-/* ---------- Authentication & Avatar Gallery ---------- */
-let authMode = 'login';
+/* ---------- Authentication, Quick Rooms & Avatar Gallery ---------- */
+let authMode = 'login'; // 'login' | 'register' | 'room'
+let roomSubMode = 'create'; // 'create' | 'join'
+let isQuickRoomMode = false;
+let currentRoomCode = '';
 let selectedGender = 'male';
 let selectedAvatar = 0;
+
+function makeClientRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let c = '';
+  for (let i = 0; i < 6; i++) c += chars[Math.floor(Math.random() * chars.length)];
+  return c;
+}
+
+let draftRoomCode = makeClientRoomCode();
+$('generatedRoomCode').textContent = draftRoomCode;
+
+$('regenRoomCodeBtn').onclick = () => {
+  draftRoomCode = makeClientRoomCode();
+  $('generatedRoomCode').textContent = draftRoomCode;
+};
+
+$('copyRoomCodeBtn').onclick = () => {
+  navigator.clipboard?.writeText(draftRoomCode).catch(() => {});
+  showToast(`Room code ${draftRoomCode} copied!`);
+};
+
+$('activeRoomCodeBadge').onclick = () => {
+  if (!currentRoomCode) return;
+  navigator.clipboard?.writeText(currentRoomCode).catch(() => {});
+  showToast(`Room code ${currentRoomCode} copied!`);
+};
 
 function renderAvatarGallery() {
   $('avatarGallery').replaceChildren();
@@ -1417,17 +1450,127 @@ function renderAvatarGallery() {
   $('femaleAvatars').setAttribute('aria-pressed', String(selectedGender === 'female'));
 }
 
-function setAuthMode(mode) {
-  authMode = mode;
-  $('registerFields').classList.toggle('hidden', mode === 'login');
-  $('authSubmit').textContent = mode === 'login' ? 'Sign in' : 'Create account';
-  $('password').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
-  $('loginTab').classList.toggle('primary-action', mode === 'login');
-  $('registerTab').classList.toggle('primary-action', mode === 'register');
+function setRoomSubMode(sub) {
+  roomSubMode = sub;
+  $('createRoomSubTab').classList.toggle('primary-action', sub === 'create');
+  $('joinRoomSubTab').classList.toggle('primary-action', sub === 'join');
+  $('createRoomBox').classList.toggle('hidden', sub !== 'create');
+  $('joinRoomBox').classList.toggle('hidden', sub !== 'join');
+  $('joinRoomCodeInput').required = authMode === 'room' && sub === 'join';
+  $('authSubmit').textContent = sub === 'create' ? 'Create & Enter Room' : 'Join Room';
   $('authError').textContent = '';
 }
 
+function setAuthMode(mode) {
+  authMode = mode;
+  const isAccount = mode === 'login' || mode === 'register';
+  const showProfile = mode === 'register' || mode === 'room';
+
+  $('accountAuthFields').classList.toggle('hidden', !isAccount);
+  $('roomModeFields').classList.toggle('hidden', mode !== 'room');
+  $('profileSetupFields').classList.toggle('hidden', !showProfile);
+
+  $('username').required = isAccount;
+  $('password').required = isAccount;
+  $('accountName').required = showProfile;
+  $('joinRoomCodeInput').required = mode === 'room' && roomSubMode === 'join';
+
+  $('loginTab').classList.toggle('primary-action', mode === 'login');
+  $('registerTab').classList.toggle('primary-action', mode === 'register');
+  $('roomTab').classList.toggle('primary-action', mode === 'room');
+
+  if (mode === 'login') {
+    $('authSubmit').textContent = 'Sign in';
+    $('password').autocomplete = 'current-password';
+  } else if (mode === 'register') {
+    $('authSubmit').textContent = 'Create account';
+    $('password').autocomplete = 'new-password';
+  } else {
+    setRoomSubMode(roomSubMode);
+  }
+  $('authError').textContent = '';
+}
+
+function leaveQuickRoomSession() {
+  socket.emit('quick-room-leave');
+  isQuickRoomMode = false;
+  currentRoomCode = '';
+  activePeer = null;
+  activeRoomKey = '';
+  currentAccount = null;
+  $('messengerShell').classList.remove('quick-room-mode', 'mobile-chat-open');
+  $('activeRoomCodeBadge').classList.add('hidden');
+  $('leaveRoomBtn').classList.add('hidden');
+  $('app').classList.add('hidden');
+  $('auth').classList.remove('hidden');
+  draftRoomCode = makeClientRoomCode();
+  $('generatedRoomCode').textContent = draftRoomCode;
+}
+
+$('leaveRoomBtn').onclick = () => {
+  closeAllMenus();
+  leaveQuickRoomSession();
+};
+
+function enterQuickRoom(res) {
+  isQuickRoomMode = true;
+  currentRoomCode = res.roomCode;
+  currentAccount = res.user;
+  cid = res.user.id;
+  activePeer = res.peer;
+  activeRoomKey = res.roomKey;
+  peerTyping = false;
+  setReply(null);
+
+  $('auth').classList.add('hidden');
+  $('app').classList.remove('hidden');
+  $('messengerShell').classList.add('quick-room-mode', 'mobile-chat-open');
+  $('emptyChatState').classList.add('hidden');
+  $('activeChatView').classList.remove('hidden');
+
+  $('activeRoomCodeBadge').textContent = `ROOM: ${currentRoomCode}`;
+  $('activeRoomCodeBadge').classList.remove('hidden');
+  $('leaveRoomBtn').classList.remove('hidden');
+
+  Object.values(items).forEach((it) => clearTimeout(it.vanishTimer));
+  $('msgs').innerHTML = '';
+  Object.keys(items).forEach((k) => delete items[k]);
+
+  (res.history || []).forEach(render);
+  applyWeather(res.weather || 'clear', null);
+  updatePeerMood(activePeer.mood || '');
+  updateChatHeader();
+
+  if (res.game) {
+    gameState = res.game;
+    activeGame = res.game.type;
+    renderGame(res.game);
+  } else {
+    gameState = null;
+    activeGame = null;
+    $('gameStage').classList.add('hidden');
+  }
+
+  resizeCanvas();
+  if (window.innerWidth > 768) $('input').focus();
+}
+
+socket.on('quick-room-peer-joined', ({ roomKey, peer }) => {
+  if (!isQuickRoomMode || roomKey !== activeRoomKey) return;
+  activePeer = peer;
+  beep(880);
+  showToast(`🎉 ${peer.name} joined the room!`);
+  updatePeerMood(peer.mood || '');
+  updateChatHeader();
+});
+
 function enterApp(user) {
+  isQuickRoomMode = false;
+  currentRoomCode = '';
+  $('messengerShell').classList.remove('quick-room-mode');
+  $('activeRoomCodeBadge').classList.add('hidden');
+  $('leaveRoomBtn').classList.add('hidden');
+
   currentAccount = user;
   cid = user.id;
   $('sidebarMyAvatar').innerHTML = avatarArt(user.gender, user.avatar);
@@ -1454,6 +1597,10 @@ function enterApp(user) {
 
 $('loginTab').onclick = () => setAuthMode('login');
 $('registerTab').onclick = () => setAuthMode('register');
+$('roomTab').onclick = () => setAuthMode('room');
+$('createRoomSubTab').onclick = () => setRoomSubMode('create');
+$('joinRoomSubTab').onclick = () => setRoomSubMode('join');
+
 $('maleAvatars').onclick = () => {
   selectedGender = 'male';
   renderAvatarGallery();
@@ -1471,6 +1618,35 @@ $('authForm').onsubmit = (e) => {
   }
   $('authSubmit').disabled = true;
   $('authError').textContent = '';
+
+  if (authMode === 'room') {
+    const code = roomSubMode === 'create' ? draftRoomCode : $('joinRoomCodeInput').value.trim();
+    socket.timeout(15000).emit(
+      'quick-room-auth',
+      {
+        action: roomSubMode,
+        code,
+        name: $('accountName').value,
+        gender: selectedGender,
+        avatar: selectedAvatar
+      },
+      (err, res) => {
+        $('authSubmit').disabled = false;
+        if (err || res?.error) {
+          $('authError').textContent = res?.error || 'Could not enter room. Please try again.';
+          return;
+        }
+        enterQuickRoom(res);
+        if (roomSubMode === 'create') {
+          showToast(`Room ${res.roomCode} created! Share the code to chat.`);
+        } else {
+          showToast(`Joined room ${res.roomCode}!`);
+        }
+      }
+    );
+    return;
+  }
+
   socket.timeout(15000).emit(
     'account-auth',
     {
@@ -1501,7 +1677,7 @@ $('logoutBtn').onclick = () => {
 };
 
 socket.on('connect', () => {
-  if (accountToken) {
+  if (accountToken && !isQuickRoomMode) {
     socket.emit('account-resume', accountToken, (res) => {
       if (res.user) {
         enterApp(res.user);
@@ -1523,3 +1699,4 @@ socket.on('disconnect', () => {
 });
 
 renderAvatarGallery();
+setAuthMode('login');

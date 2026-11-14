@@ -1517,3 +1517,80 @@ footer textarea:focus { border-color: var(--accent); }
   padding-top: 10px;
   border-top: 1px solid var(--border);
 }
+
+/* ---------- Quick Room Auth & Workspace Styles ---------- */
+.primary-mode-tabs button {
+  padding: 9px 8px;
+  font-size: 12.5px;
+}
+.sub-room-tabs {
+  margin-top: 2px;
+  margin-bottom: 10px;
+}
+.room-code-card {
+  background: var(--bg);
+  border: 1px dashed var(--accent);
+  border-radius: 16px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.room-code-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+}
+.room-code-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.room-code-display {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: var(--text);
+  padding: 2px 6px;
+}
+.room-code-hint {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* Single-Room Workspace Mode (Hide Friends Sidebar) */
+.messenger-shell.quick-room-mode .inbox-sidebar {
+  display: none !important;
+}
+.messenger-shell.quick-room-mode .chat-pane {
+  position: relative;
+  transform: none !important;
+  width: 100%;
+}
+.messenger-shell.quick-room-mode .back-btn {
+  display: inline-flex;
+}
+
+.connection-bridge {
+  flex-direction: column;
+  gap: 3px;
+}
+.room-pill-badge {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--border);
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+.room-pill-badge:hover {
+  border-color: var(--accent);
+  transform: scale(1.04);
+}

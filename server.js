@@ -1,4 +1,4 @@
-// server.js - DuoChat v5 Backend (Multi-Inbox Messenger, Friend Requests, Real-time Mini-Games, Synced Weather)
+// server.js - DuoChat v6 Backend (Multi-Inbox Messenger + Instant Code-Based Chat Rooms + Real-time Mini-Games + Synced Weather)
 const express = require('express');
 const http = require('http');
 const fs = require('node:fs');
@@ -28,6 +28,7 @@ function persistConversations() {
   savingConvs = savingConvs.catch(() => {}).then(async () => {
     const serializable = {};
     for (const [key, conv] of Object.entries(conversations)) {
+      if (key.startsWith('quick:')) continue; // Quick rooms are ephemeral in memory
       serializable[key] = {
         history: conv.history || [],
         weather: conv.weather || 'clear'
@@ -42,8 +43,20 @@ function persistConversations() {
 const activeGames = Object.create(null); // roomKey -> game object
 const onlineUsers = new Map(); // userId -> { sockets: Set<string>, mood: string }
 
+// Instant Code-Based Quick Rooms: code -> { code, members: Map<guestId, { id, name, gender, avatar, socketId, online, mood }>, history: [], weather: 'clear' }
+const quickRooms = new Map();
+
 const clip = (v, n) => String(v || '').slice(0, n);
 const VALID_WEATHERS = ['clear', 'rain', 'storm', 'snow', 'stars', 'petals'];
+
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
 
 function getRoomKey(idA, idB) {
   return [String(idA), String(idB)].sort().join('::');
@@ -107,7 +120,6 @@ function buildInboxList(userId) {
     };
   });
 
-  // Sort by most recent activity
   friends.sort((a, b) => {
     const ta = a.lastMessage ? a.lastMessage.time : 0;
     const tb = b.lastMessage ? b.lastMessage.time : 0;
@@ -138,10 +150,20 @@ function notifyFriendsPresence(userId) {
   }
 }
 
+function getQuickRoomPeer(room, myId) {
+  for (const [mid, member] of room.members.entries()) {
+    if (mid !== myId) return member;
+  }
+  return null;
+}
+
 io.on('connection', (socket) => {
   accounts.install(socket);
   let currentUser = null;
   let activePeerId = null;
+
+  // Guest Quick-Room State per Socket
+  let quickGuest = null; // { id, name, gender, avatar, roomCode }
 
   function bindUser(user) {
     if (currentUser && currentUser.id !== user.id) {
@@ -158,7 +180,36 @@ io.on('connection', (socket) => {
     notifyFriendsPresence(user.id);
   }
 
+  function leaveQuickRoom() {
+    if (!quickGuest) return;
+    const { id, roomCode } = quickGuest;
+    const room = quickRooms.get(roomCode);
+    if (room) {
+      const peer = getQuickRoomPeer(room, id);
+      room.members.delete(id);
+      if (peer) {
+        emitToUser(peer.id, 'friend-presence', {
+          userId: id,
+          online: false,
+          mood: '',
+          name: quickGuest.name,
+          gender: quickGuest.gender,
+          avatar: quickGuest.avatar
+        });
+      }
+      if (room.members.size === 0) {
+        delete activeGames['quick:' + roomCode];
+        quickRooms.delete(roomCode);
+      }
+    }
+    socket.leave('user:' + id);
+    quickGuest = null;
+  }
+
   function cleanupSocket() {
+    if (quickGuest) {
+      leaveQuickRoom();
+    }
     if (!currentUser) return;
     const uid = currentUser.id;
     const entry = onlineUsers.get(uid);
@@ -174,6 +225,92 @@ io.on('connection', (socket) => {
     }
   }
 
+  /* ---------- Quick Room Create / Join ---------- */
+  socket.on('quick-room-auth', (payload = {}, cb = () => {}) => {
+    const action = payload.action; // 'create' | 'join'
+    const name = clip(payload.name, 24).trim();
+    const gender = payload.gender === 'female' ? 'female' : 'male';
+    const avatar = Math.max(0, Math.min(7, Number(payload.avatar) || 0));
+
+    if (!name) return cb({ error: 'Please enter your display name.' });
+
+    if (quickGuest) leaveQuickRoom();
+
+    let code = String(payload.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+    let room = null;
+
+    if (action === 'create') {
+      if (!code || code.length < 4) code = generateRoomCode();
+      while (quickRooms.has(code)) {
+        code = generateRoomCode();
+      }
+      room = {
+        code,
+        members: new Map(),
+        history: [],
+        weather: 'clear'
+      };
+      quickRooms.set(code, room);
+    } else if (action === 'join') {
+      if (!code) return cb({ error: 'Please enter a valid room code.' });
+      room = quickRooms.get(code);
+      if (!room) return cb({ error: 'Room not found. Check the code and try again.' });
+      if (room.members.size >= 2) return cb({ error: 'This room is already full (2/2 members).' });
+    } else {
+      return cb({ error: 'Invalid room action.' });
+    }
+
+    const guestId = 'guest_' + Math.random().toString(36).slice(2, 10);
+    const memberObj = {
+      id: guestId,
+      username: 'room_' + code.toLowerCase(),
+      name,
+      gender,
+      avatar,
+      online: true,
+      mood: ''
+    };
+
+    room.members.set(guestId, memberObj);
+    quickGuest = { id: guestId, name, gender, avatar, roomCode: code };
+    socket.join('user:' + guestId);
+
+    const roomKey = 'quick:' + code;
+    const peer = getQuickRoomPeer(room, guestId);
+
+    if (peer) {
+      // Notify existing room creator that partner joined
+      emitToUser(peer.id, 'quick-room-peer-joined', {
+        roomKey,
+        peer: memberObj
+      });
+    }
+
+    cb({
+      ok: true,
+      roomCode: code,
+      roomKey,
+      user: memberObj,
+      peer: peer || {
+        id: 'waiting_' + code,
+        username: 'waiting',
+        name: 'Waiting for partner…',
+        gender: gender === 'male' ? 'female' : 'male',
+        avatar: 0,
+        online: false,
+        mood: ''
+      },
+      history: room.history,
+      weather: room.weather,
+      game: publicGame(activeGames[roomKey] || null, guestId)
+    });
+  });
+
+  socket.on('quick-room-leave', () => {
+    leaveQuickRoom();
+  });
+
+  /* ---------- Standard Account Session ---------- */
   socket.on('session-init', (token, cb = () => {}) => {
     const user = accounts.lookup(token);
     if (!user) return cb({ error: 'Please sign in again.' });
@@ -254,7 +391,6 @@ io.on('connection', (socket) => {
     const roomKey = getRoomKey(me.id, peer.id);
     const conv = getConversation(roomKey);
 
-    // Mark undelivered peer messages as delivered
     const deliveredIds = [];
     for (const m of conv.history) {
       if (m.from === peer.id && m.status === 'sent') {
@@ -282,36 +418,64 @@ io.on('connection', (socket) => {
     });
   });
 
+  /* ---------- Unified Chat & Game Events (Account Friends + Quick Room Guests) ---------- */
+  function resolveActiveContext(peerId) {
+    if (quickGuest) {
+      const room = quickRooms.get(quickGuest.roomCode);
+      if (!room) return null;
+      const roomKey = 'quick:' + quickGuest.roomCode;
+      const peer = getQuickRoomPeer(room, quickGuest.id);
+      return {
+        isQuick: true,
+        me: quickGuest,
+        peer,
+        peerId: peer ? peer.id : null,
+        roomKey,
+        conv: room
+      };
+    }
+    if (currentUser && peerId) {
+      const me = accounts.getById(currentUser.id);
+      if (!me || !me.friends.includes(peerId)) return null;
+      const roomKey = getRoomKey(me.id, peerId);
+      return {
+        isQuick: false,
+        me,
+        peer: accounts.getById(peerId),
+        peerId,
+        roomKey,
+        conv: getConversation(roomKey)
+      };
+    }
+    return null;
+  }
+
   socket.on('weather', ({ peerId, weather } = {}) => {
-    if (!currentUser || !peerId) return;
-    const me = accounts.getById(currentUser.id);
-    if (!me || !me.friends.includes(peerId)) return;
+    const ctx = resolveActiveContext(peerId);
+    if (!ctx) return;
 
     const cleanW = VALID_WEATHERS.includes(weather) ? weather : 'clear';
-    const roomKey = getRoomKey(me.id, peerId);
-    const conv = getConversation(roomKey);
-    conv.weather = cleanW;
-    persistConversations();
+    ctx.conv.weather = cleanW;
+    if (!ctx.isQuick) persistConversations();
 
-    emitToUser(peerId, 'weather', { roomKey, weather: cleanW, by: me.name });
+    if (ctx.peerId) {
+      emitToUser(ctx.peerId, 'weather', { roomKey: ctx.roomKey, weather: cleanW, by: ctx.me.name });
+    }
   });
 
   socket.on('msg', (m = {}, cb = () => {}) => {
-    if (!currentUser || !m || typeof m !== 'object') return;
-    const peerId = String(m.to || '');
-    const me = accounts.getById(currentUser.id);
-    if (!me || !me.friends.includes(peerId)) return cb({ error: 'You can only message accepted friends.' });
+    if (!m || typeof m !== 'object') return;
+    const ctx = resolveActiveContext(String(m.to || ''));
+    if (!ctx) return cb({ error: 'Session unavailable.' });
+    if (ctx.isQuick && !ctx.peerId) return cb({ error: 'Share your room code and wait for your partner to join.' });
 
-    const roomKey = getRoomKey(me.id, peerId);
-    const conv = getConversation(roomKey);
-    const peerOnline = isUserOnline(peerId);
-
+    const peerOnline = ctx.isQuick ? true : isUserOnline(ctx.peerId);
     const clean = {
       id: clip(m.id, 40),
-      roomKey,
-      from: me.id,
-      to: peerId,
-      name: me.name,
+      roomKey: ctx.roomKey,
+      from: ctx.me.id,
+      to: ctx.peerId,
+      name: ctx.me.name,
       text: clip(m.text, 4000),
       image: typeof m.image === 'string' && m.image.startsWith('data:image/') ? m.image : null,
       reply: m.reply ? { name: clip(m.reply.name, 24), text: clip(m.reply.text, 120) } : null,
@@ -323,132 +487,155 @@ io.on('connection', (socket) => {
     };
 
     if (!clean.id || (!clean.text.trim() && !clean.image)) return;
-    if (conv.history.some((item) => item.id === clean.id)) return cb(clean.status);
+    if (ctx.conv.history.some((item) => item.id === clean.id)) return cb(clean.status);
 
-    conv.history.push(clean);
-    if (conv.history.length > 250) conv.history.shift();
-    persistConversations();
+    ctx.conv.history.push(clean);
+    if (ctx.conv.history.length > 250) ctx.conv.history.shift();
+    if (!ctx.isQuick) persistConversations();
 
-    emitToUser(peerId, 'msg', clean);
-    // Also notify sender's other tabs if open
-    socket.to('user:' + me.id).emit('msg', clean);
+    emitToUser(ctx.peerId, 'msg', clean);
+    socket.to('user:' + ctx.me.id).emit('msg', clean);
     cb(clean.status);
   });
 
   socket.on('seen', ({ peerId, ids } = {}) => {
-    if (!currentUser || !peerId || !Array.isArray(ids) || !ids.length) return;
-    const roomKey = getRoomKey(currentUser.id, peerId);
-    const conv = getConversation(roomKey);
-    let changed = false;
+    if (!Array.isArray(ids) || !ids.length) return;
+    const ctx = resolveActiveContext(peerId);
+    if (!ctx || !ctx.peerId) return;
 
-    conv.history.forEach((m) => {
-      if (ids.includes(m.id) && m.from === peerId && m.status !== 'seen') {
+    let changed = false;
+    ctx.conv.history.forEach((m) => {
+      if (ids.includes(m.id) && m.from === ctx.peerId && m.status !== 'seen') {
         m.status = 'seen';
         changed = true;
         if (m.vanish) {
           setTimeout(() => {
-            const c = getConversation(roomKey);
-            c.history = c.history.filter((item) => item.id !== m.id);
-            persistConversations();
+            ctx.conv.history = ctx.conv.history.filter((item) => item.id !== m.id);
+            if (!ctx.isQuick) persistConversations();
           }, 10000);
         }
       }
     });
 
-    if (changed) persistConversations();
-    emitToUser(peerId, 'status', { roomKey, ids, status: 'seen' });
+    if (changed && !ctx.isQuick) persistConversations();
+    emitToUser(ctx.peerId, 'status', { roomKey: ctx.roomKey, ids, status: 'seen' });
   });
 
   socket.on('react', ({ peerId, id, emoji } = {}) => {
-    if (!currentUser || !peerId || !id) return;
-    const roomKey = getRoomKey(currentUser.id, peerId);
-    const conv = getConversation(roomKey);
+    if (!id) return;
+    const ctx = resolveActiveContext(peerId);
+    if (!ctx) return;
+
     const cleanEmoji = clip(emoji, 8);
-    const msg = conv.history.find((m) => m.id === id);
+    const msg = ctx.conv.history.find((m) => m.id === id);
     if (msg) {
       msg.reaction = cleanEmoji;
-      persistConversations();
+      if (!ctx.isQuick) persistConversations();
     }
-    emitToUser(peerId, 'react', { roomKey, id, emoji: cleanEmoji });
+    if (ctx.peerId) {
+      emitToUser(ctx.peerId, 'react', { roomKey: ctx.roomKey, id, emoji: cleanEmoji });
+    }
   });
 
   socket.on('edit-message', ({ peerId, id, text } = {}, cb = () => {}) => {
-    if (!currentUser || !peerId || !id) return;
-    const roomKey = getRoomKey(currentUser.id, peerId);
-    const conv = getConversation(roomKey);
-    const msg = conv.history.find((item) => item.id === id);
-    if (!msg || msg.from !== currentUser.id || msg.vanish || msg.image) {
+    if (!id) return;
+    const ctx = resolveActiveContext(peerId);
+    if (!ctx) return;
+
+    const msg = ctx.conv.history.find((item) => item.id === id);
+    if (!msg || msg.from !== ctx.me.id || msg.vanish || msg.image) {
       return cb({ error: 'This message cannot be edited.' });
     }
     const cleanText = clip(text, 4000).trim();
     if (!cleanText) return cb({ error: 'Message cannot be empty.' });
     msg.text = cleanText;
     msg.edited = true;
-    persistConversations();
+    if (!ctx.isQuick) persistConversations();
 
-    const payload = { roomKey, id, text: cleanText, edited: true };
-    emitToUser(peerId, 'message-edited', payload);
-    emitToUser(currentUser.id, 'message-edited', payload);
+    const payload = { roomKey: ctx.roomKey, id, text: cleanText, edited: true };
+    if (ctx.peerId) emitToUser(ctx.peerId, 'message-edited', payload);
+    emitToUser(ctx.me.id, 'message-edited', payload);
     cb({ ok: true });
   });
 
   socket.on('delete-message', ({ peerId, id } = {}, cb = () => {}) => {
-    if (!currentUser || !peerId || !id) return;
-    const roomKey = getRoomKey(currentUser.id, peerId);
-    const conv = getConversation(roomKey);
-    const index = conv.history.findIndex((item) => item.id === id);
-    if (index < 0 || conv.history[index].from !== currentUser.id) {
+    if (!id) return;
+    const ctx = resolveActiveContext(peerId);
+    if (!ctx) return;
+
+    const index = ctx.conv.history.findIndex((item) => item.id === id);
+    if (index < 0 || ctx.conv.history[index].from !== ctx.me.id) {
       return cb({ error: 'You can only delete your own message for everyone.' });
     }
-    conv.history.splice(index, 1);
-    persistConversations();
+    ctx.conv.history.splice(index, 1);
+    if (!ctx.isQuick) persistConversations();
 
-    const payload = { roomKey, id };
-    emitToUser(peerId, 'message-deleted', payload);
-    emitToUser(currentUser.id, 'message-deleted', payload);
+    const payload = { roomKey: ctx.roomKey, id };
+    if (ctx.peerId) emitToUser(ctx.peerId, 'message-deleted', payload);
+    emitToUser(ctx.me.id, 'message-deleted', payload);
     cb({ ok: true });
   });
 
   socket.on('clear', ({ peerId } = {}) => {
-    if (!currentUser || !peerId) return;
-    const roomKey = getRoomKey(currentUser.id, peerId);
-    const conv = getConversation(roomKey);
-    conv.history = [];
-    persistConversations();
-    emitToUser(peerId, 'clear', { roomKey });
-    emitToUser(currentUser.id, 'clear', { roomKey });
+    const ctx = resolveActiveContext(peerId);
+    if (!ctx) return;
+
+    ctx.conv.history = [];
+    if (!ctx.isQuick) persistConversations();
+    if (ctx.peerId) emitToUser(ctx.peerId, 'clear', { roomKey: ctx.roomKey });
+    emitToUser(ctx.me.id, 'clear', { roomKey: ctx.roomKey });
   });
 
   socket.on('mood', (mood) => {
-    if (!currentUser) return;
     const cleanMood = clip(mood, 32);
+    if (quickGuest) {
+      const room = quickRooms.get(quickGuest.roomCode);
+      if (room) {
+        const selfMember = room.members.get(quickGuest.id);
+        if (selfMember) selfMember.mood = cleanMood;
+        const peer = getQuickRoomPeer(room, quickGuest.id);
+        if (peer) {
+          emitToUser(peer.id, 'friend-presence', {
+            userId: quickGuest.id,
+            online: true,
+            mood: cleanMood,
+            name: quickGuest.name,
+            gender: quickGuest.gender,
+            avatar: quickGuest.avatar
+          });
+        }
+      }
+      return;
+    }
+    if (!currentUser) return;
     const entry = onlineUsers.get(currentUser.id);
     if (entry) entry.mood = cleanMood;
     notifyFriendsPresence(currentUser.id);
   });
 
   socket.on('nudge', ({ peerId } = {}) => {
-    if (!currentUser || !peerId) return;
-    const me = accounts.getById(currentUser.id);
-    if (!me || !me.friends.includes(peerId)) return;
-    emitToUser(peerId, 'nudge', { fromId: me.id, fromName: me.name });
+    const ctx = resolveActiveContext(peerId);
+    if (!ctx || !ctx.peerId) return;
+    emitToUser(ctx.peerId, 'nudge', { fromId: ctx.me.id, fromName: ctx.me.name });
   });
 
   socket.on('typing', ({ peerId, typing } = {}) => {
-    if (!currentUser || !peerId) return;
-    emitToUser(peerId, 'typing', { from: currentUser.id, typing: !!typing });
+    const ctx = resolveActiveContext(peerId);
+    if (!ctx || !ctx.peerId) return;
+    emitToUser(ctx.peerId, 'typing', { from: ctx.me.id, typing: !!typing });
   });
 
   // ---------- Authoritative Real-Time Mini-Games (Tic-Tac-Toe, RPS, Connect Four) ----------
   socket.on('game-start', ({ peerId, type } = {}, cb = () => {}) => {
-    if (!currentUser || !peerId) return;
-    const me = accounts.getById(currentUser.id);
-    if (!me || !me.friends.includes(peerId)) return cb({ error: 'Friends only.' });
+    const ctx = resolveActiveContext(peerId);
+    if (!ctx) return cb({ error: 'Session unavailable.' });
     if (!['tictactoe', 'rps', 'connect4'].includes(type)) return cb({ error: 'Unknown game.' });
-    if (!isUserOnline(peerId)) return cb({ error: 'Your friend must be online to start a game.' });
 
-    const roomKey = getRoomKey(me.id, peerId);
-    const players = [me.id, peerId];
+    const peerOnline = ctx.isQuick ? !!ctx.peerId : isUserOnline(ctx.peerId);
+    if (!peerOnline || !ctx.peerId) return cb({ error: 'Your partner must be online in the chat to start a game.' });
+
+    const roomKey = ctx.roomKey;
+    const players = [ctx.me.id, ctx.peerId];
 
     if (type === 'tictactoe') {
       activeGames[roomKey] = {
@@ -456,9 +643,9 @@ io.on('connection', (socket) => {
         players,
         board: Array(9).fill(''),
         winLine: null,
-        turn: me.id,
-        marks: { [me.id]: 'X', [peerId]: 'O' },
-        scores: { [me.id]: 0, [peerId]: 0 },
+        turn: ctx.me.id,
+        marks: { [ctx.me.id]: 'X', [ctx.peerId]: 'O' },
+        scores: { [ctx.me.id]: 0, [ctx.peerId]: 0 },
         result: null,
         winnerId: null
       };
@@ -468,12 +655,11 @@ io.on('connection', (socket) => {
         players,
         round: 1,
         choices: {},
-        scores: { [me.id]: 0, [peerId]: 0 },
+        scores: { [ctx.me.id]: 0, [ctx.peerId]: 0 },
         lastRound: null,
         matchWinner: null
       };
     } else if (type === 'connect4') {
-      // 6 rows x 7 cols = 42 cells (row 0 = top, row 5 = bottom)
       activeGames[roomKey] = {
         type: 'connect4',
         players,
@@ -481,9 +667,9 @@ io.on('connection', (socket) => {
         winCells: null,
         lastCol: null,
         lastRow: null,
-        turn: me.id,
-        colors: { [me.id]: 'R', [peerId]: 'Y' },
-        scores: { [me.id]: 0, [peerId]: 0 },
+        turn: ctx.me.id,
+        colors: { [ctx.me.id]: 'R', [ctx.peerId]: 'Y' },
+        scores: { [ctx.me.id]: 0, [ctx.peerId]: 0 },
         result: null,
         winnerId: null
       };
@@ -494,24 +680,25 @@ io.on('connection', (socket) => {
   });
 
   socket.on('game-action', (payload = {}, cb = () => {}) => {
-    if (!currentUser || !payload || !payload.peerId) return;
-    const peerId = String(payload.peerId);
-    const roomKey = getRoomKey(currentUser.id, peerId);
+    const ctx = resolveActiveContext(String(payload.peerId || ''));
+    if (!ctx) return cb({ error: 'Session unavailable.' });
+
+    const roomKey = ctx.roomKey;
     const g = activeGames[roomKey];
     if (!g || g.type !== payload.type) return cb({ error: 'No active game found.' });
-    if (!g.players.includes(currentUser.id)) return cb({ error: 'Not a participant.' });
+    if (!g.players.includes(ctx.me.id)) return cb({ error: 'Not a participant.' });
 
-    const me = accounts.getById(currentUser.id);
-    const peer = accounts.getById(peerId);
+    const myId = ctx.me.id;
+    const oppId = g.players.find((id) => id !== myId);
 
     if (g.type === 'tictactoe') {
       if (g.result) return cb({ error: 'Round already ended.' });
-      if (g.turn !== currentUser.id) return cb({ error: 'Wait for your turn.' });
+      if (g.turn !== myId) return cb({ error: 'Wait for your turn.' });
       const i = payload.index;
       if (!Number.isInteger(i) || i < 0 || i > 8 || g.board[i]) {
         return cb({ error: 'Cell is unavailable.' });
       }
-      g.board[i] = g.marks[currentUser.id];
+      g.board[i] = g.marks[myId];
       const lines = [
         [0, 1, 2], [3, 4, 5], [6, 7, 8],
         [0, 3, 6], [1, 4, 7], [2, 5, 8],
@@ -520,22 +707,22 @@ io.on('connection', (socket) => {
       const hit = lines.find((line) => g.board[line[0]] && line.every((n) => g.board[n] === g.board[line[0]]));
       if (hit) {
         g.winLine = hit;
-        g.winnerId = currentUser.id;
-        g.scores[currentUser.id] = (g.scores[currentUser.id] || 0) + 1;
-        g.result = `${me ? me.name : 'Player'} wins!`;
+        g.winnerId = myId;
+        g.scores[myId] = (g.scores[myId] || 0) + 1;
+        g.result = `${ctx.me.name} wins!`;
       } else if (g.board.every(Boolean)) {
         g.result = 'Draw match!';
       } else {
-        g.turn = peerId;
+        g.turn = oppId;
       }
       broadcastGame(roomKey, g.players);
     } else if (g.type === 'rps') {
       if (g.matchWinner) return cb({ error: 'Match finished. Start a new match!' });
       const choice = payload.choice;
       if (!['rock', 'paper', 'scissors'].includes(choice)) return cb({ error: 'Invalid move.' });
-      if (g.choices[currentUser.id]) return cb({ error: 'Choice already locked in.' });
+      if (g.choices[myId]) return cb({ error: 'Choice already locked in.' });
 
-      g.choices[currentUser.id] = choice;
+      g.choices[myId] = choice;
       if (g.players.every((id) => g.choices[id])) {
         const [a, b] = g.players;
         const ca = g.choices[a];
@@ -561,11 +748,10 @@ io.on('connection', (socket) => {
       broadcastGame(roomKey, g.players);
     } else if (g.type === 'connect4') {
       if (g.result) return cb({ error: 'Round already ended.' });
-      if (g.turn !== currentUser.id) return cb({ error: 'Wait for your turn.' });
+      if (g.turn !== myId) return cb({ error: 'Wait for your turn.' });
       const col = payload.col;
       if (!Number.isInteger(col) || col < 0 || col > 6) return cb({ error: 'Invalid column.' });
 
-      // Find lowest empty row in column (rows 5 down to 0)
       let targetRow = -1;
       for (let r = 5; r >= 0; r--) {
         if (!g.board[r * 7 + col]) {
@@ -575,7 +761,7 @@ io.on('connection', (socket) => {
       }
       if (targetRow === -1) return cb({ error: 'That column is full!' });
 
-      const color = g.colors[currentUser.id];
+      const color = g.colors[myId];
       g.board[targetRow * 7 + col] = color;
       g.lastCol = col;
       g.lastRow = targetRow;
@@ -583,13 +769,13 @@ io.on('connection', (socket) => {
       const winCells = checkConnect4Win(g.board, targetRow, col, color);
       if (winCells) {
         g.winCells = winCells;
-        g.winnerId = currentUser.id;
-        g.scores[currentUser.id] = (g.scores[currentUser.id] || 0) + 1;
-        g.result = `${me ? me.name : 'Player'} connects four!`;
+        g.winnerId = myId;
+        g.scores[myId] = (g.scores[myId] || 0) + 1;
+        g.result = `${ctx.me.name} connects four!`;
       } else if (g.board.every(Boolean)) {
         g.result = 'Board full — Draw!';
       } else {
-        g.turn = peerId;
+        g.turn = oppId;
       }
       broadcastGame(roomKey, g.players);
     }
@@ -598,13 +784,13 @@ io.on('connection', (socket) => {
   });
 
   socket.on('game-reset', ({ peerId } = {}) => {
-    if (!currentUser || !peerId) return;
-    const roomKey = getRoomKey(currentUser.id, peerId);
+    const ctx = resolveActiveContext(peerId);
+    if (!ctx) return;
+    const roomKey = ctx.roomKey;
     const g = activeGames[roomKey];
     if (!g) return;
 
     if (g.type === 'tictactoe') {
-      // Swap X and O on rematch for fairness
       const [p1, p2] = g.players;
       const prevP1Mark = g.marks[p1];
       g.marks[p1] = prevP1Mark === 'X' ? 'O' : 'X';
@@ -627,14 +813,15 @@ io.on('connection', (socket) => {
       g.lastRow = null;
       g.result = null;
       g.winnerId = null;
-      g.turn = currentUser.id;
+      g.turn = ctx.me.id;
     }
     broadcastGame(roomKey, g.players);
   });
 
   socket.on('game-close', ({ peerId } = {}) => {
-    if (!currentUser || !peerId) return;
-    const roomKey = getRoomKey(currentUser.id, peerId);
+    const ctx = resolveActiveContext(peerId);
+    if (!ctx) return;
+    const roomKey = ctx.roomKey;
     const g = activeGames[roomKey];
     if (!g) return;
     const players = g.players;
@@ -649,10 +836,10 @@ io.on('connection', (socket) => {
 
 function checkConnect4Win(board, row, col, color) {
   const dirs = [
-    [0, 1],  // horizontal
-    [1, 0],  // vertical
-    [1, 1],  // diagonal down-right
-    [1, -1]  // diagonal down-left
+    [0, 1],
+    [1, 0],
+    [1, 1],
+    [1, -1]
   ];
   for (const [dr, dc] of dirs) {
     const cells = [row * 7 + col];
@@ -671,4 +858,4 @@ function checkConnect4Win(board, row, col, color) {
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`DuoChat v5 running on http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`DuoChat v6 running on http://localhost:${PORT}`));
