@@ -1813,3 +1813,18 @@ footer textarea:focus { border-color: var(--accent); }
   pointer-events: auto;
 }
 
+
+/* v14 extensions reuse inherited colors, fonts and existing action classes. */
+[hidden]{display:none!important}
+.duo-icon{width:20px;height:20px;vertical-align:middle;flex-shrink:0}
+.duo-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 12px}
+.duo-tools select{max-width:145px;color:inherit;background:transparent;border:1px solid currentColor;border-radius:12px;padding:6px;font:inherit;font-size:12px}
+.duo-aura{margin-left:auto;border:2px solid currentColor;border-radius:100px;padding:4px 10px;opacity:.65;transition:box-shadow .4s}
+.duo-aura.is-live{opacity:1;box-shadow:0 0 12px currentColor;animation:duo-aura 3s ease-in-out infinite}
+#duoCards{max-height:28vh;overflow:auto;flex-shrink:0}
+.duo-card{margin:8px 12px;padding:12px;border:1px solid currentColor;border-radius:16px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.duo-card>b,.duo-card>small{width:100%}.duo-card input{min-width:0;max-width:100%;box-sizing:border-box}.duo-card form{display:flex;gap:8px;width:100%}
+.duo-blast{position:fixed;inset:0;pointer-events:none;z-index:10000;overflow:hidden}.duo-blast span{position:absolute;top:70%;font-size:24px;color:inherit;animation:duo-fly 1.3s ease-out both}
+@keyframes duo-fly{to{transform:translate(var(--drift),-55vh) rotate(90deg);opacity:0}}
+@keyframes duo-aura{50%{box-shadow:0 0 3px currentColor}}
+@media(prefers-reduced-motion:reduce){.duo-aura.is-live{animation:none}.duo-blast{display:none}}
