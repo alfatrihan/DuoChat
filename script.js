@@ -231,6 +231,7 @@ function openModal(id) { $(id).classList.remove('hidden'); }
 function closeModal(id) { $(id).classList.add('hidden'); }
 
 $('themePresetsBtn').onclick = () => { closeAllMenus(); openModal('themesModal'); };
+if ($('devInfoBtn')) $('devInfoBtn').onclick = () => openModal('devModal');
 $('sidebarThemeBtn').onclick = () => { closeAllMenus(); openModal('themesModal'); };
 
 document.addEventListener('keydown', (e) => {
