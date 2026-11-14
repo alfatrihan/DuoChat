@@ -2342,13 +2342,7 @@ function openInteractiveCreatorInStage(type) {
   }
 }
 
-if ($('pollQuickBtn')) {
-  $('pollQuickBtn').onclick = () => {
-    if (!activePeer) return;
-    openModal('gamesModal');
-    openInteractiveCreatorInStage('duopoll');
-  };
-}
+
 
 function buildInteractiveWidget(m) {
   const w = m.widget;
