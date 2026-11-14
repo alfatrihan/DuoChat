@@ -1,6 +1,7 @@
 // server.js - DuoChat v4 Backend (DuoPlay, Message Management, Synced Weather Atmosphere)
 const express = require('express');
 const http = require('http');
+const accounts = require('./accounts');
 const { Server } = require('socket.io');
 
 const app = express();
@@ -28,11 +29,16 @@ function broadcastGame(room) {
 const VALID_WEATHERS = ['clear', 'rain', 'storm', 'snow', 'stars', 'petals'];
 
 io.on('connection', (socket) => {
+  accounts.install(socket);
   let code = null, me = null;
 
   socket.on('join', (data = {}, cb = () => {}) => {
     if (!data || typeof data !== 'object') return cb({ error: 'Invalid join request.' });
-    let { name, room, cid, mood, gender } = data;
+    const account = accounts.lookup(data.token);
+    if (!account) return cb({ error: 'Please sign in before joining a room.' });
+    let { room, mood } = data;
+    let { name, gender, avatar } = account;
+    let cid = account.id;
     gender = gender === 'female' ? 'female' : 'male';
     cid = clip(cid, 100).trim();
     if (!cid) return cb({ error: 'Missing client identity.' });
@@ -52,7 +58,7 @@ io.on('connection', (socket) => {
     }
     if (!r.users[socket.id] && Object.keys(r.users).length >= 2) return cb({ error: 'This room already has 2 people.' });
 
-    me = { name, cid, gender, mood: clip(mood, 32) };
+    me = { name, cid, gender, avatar, mood: clip(mood, 32) };
     code = room;
     r.users[socket.id] = me;
     if (r.game?.players && !r.game.players.includes(cid)) r.game = null;
@@ -65,11 +71,12 @@ io.on('connection', (socket) => {
       peer: peer ? peer.name : null,
       peerMood: peer ? peer.mood : '',
       peerGender: peer ? peer.gender : null,
+      peerAvatar: peer ? peer.avatar : 0,
       weather: r.weather || 'clear',
       game: publicGame(r.game, cid)
     });
 
-    socket.to(room).emit('presence', { online: true, name, gender: me.gender, mood: me.mood });
+    socket.to(room).emit('presence', { online: true, name, gender: me.gender, avatar: me.avatar, mood: me.mood });
     const ids = r.history.filter((m) => m.from !== cid && m.status === 'sent').map((m) => (m.status = 'delivered', m.id));
     if (ids.length) socket.to(room).emit('status', { ids, status: 'delivered' });
   });

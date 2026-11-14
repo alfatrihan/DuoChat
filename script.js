@@ -3,19 +3,26 @@ const $ = (id) => document.getElementById(id);
 const socket = io();
 
 const rnd = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
-const cid = sessionStorage.getItem('cid') || (sessionStorage.cid = rnd());
+let cid = '';
+let accountToken = sessionStorage.getItem('accountToken') || '';
+let currentAccount = null;
 
 // Original lightweight SVG artwork; no external avatar service or image download.
-function avatarArt(gender) {
+function avatarArt(gender, variant = 0) {
   if (!gender) return '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="48" fill="#25314c"/><circle cx="50" cy="38" r="15" fill="#a8b6cf"/><path d="M20 90V78a30 30 0 0 1 60 0v12" fill="#a8b6cf"/></svg>';
   const face = '<ellipse cx="50" cy="43" rx="17" ry="21" fill="#c99570"/><path d="M42 42h2m12 0h2" stroke="#382a29" stroke-width="3" stroke-linecap="round"/><path d="M46 53q4 4 8 0" fill="none" stroke="#80503f" stroke-width="2" stroke-linecap="round"/>';
   const body = gender === 'female'
     ? '<path d="M12 100q3-30 15-43V36Q27 8 50 8t24 28v21q13 13 15 43" fill="#263c61"/>' + face + '<path d="M27 39Q25 10 49 8q27-1 27 32L64 28q-17 4-29-5l-8 17v18q8 12 24 19 13-7 24-20l14 43H12l15-42" fill="#637caf"/><path d="M30 54q5 15 21 23 15-9 20-23M51 77q8 10 22 13" fill="none" stroke="#a8bce0" stroke-width="2.5" stroke-linecap="round"/><path d="M26 36q2-20 20-23" fill="none" stroke="#8da4cf" stroke-width="2"/><circle cx="67" cy="73" r="3" fill="#e5c78b"/><circle cx="67" cy="73" r="1.2" fill="#fff2ce"/>'
     : '<path d="M12 100V85q4-17 28-20h20q25 3 28 20v15" fill="#dddcd3"/><path d="M42 61v11l8 7 8-7V61" fill="#b78260"/>' + face + '<path d="M32 42q-8-24 7-30 13-10 30 0l5-4q1 13-7 20l-3 12-3-13q-15 5-25-2l-1 17" fill="#292632"/><path d="M36 22q12-13 29-7M41 25q10-8 20-6" fill="none" stroke="#514456" stroke-width="2.4" stroke-linecap="round"/><path d="M35 49q3 14 15 17 13-3 16-17l-7 9-9 4-9-4" fill="#49352f" opacity=".8"/><path d="M46 53q4 4 8 0" fill="none" stroke="#f0bb96" stroke-width="1.6" stroke-linecap="round"/><path d="M40 65l10 13 10-13M50 78v22" fill="none" stroke="#a9ada9" stroke-width="2"/><path d="M40 65l10 9 10-9" fill="none" stroke="#faf9f2" stroke-width="3"/><circle cx="54" cy="84" r="1.5" fill="#a58c64"/><circle cx="54" cy="91" r="1.5" fill="#a58c64"/>';
-  return '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="50" fill="' + (gender === 'female' ? '#1e304b' : '#35304f') + '"/><circle cx="76" cy="22" r="27" fill="#ffffff" opacity=".04"/>' + body + '</svg>';
+  let art = '<svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="50" fill="' + (gender === 'female' ? '#1e304b' : '#35304f') + '"/><circle cx="76" cy="22" r="27" fill="#ffffff" opacity=".04"/>' + body + '</svg>';
+  const palettes = [ ['#637caf','#dddcd3','#c99570'], ['#8d627a','#314663','#bd8864'], ['#457f79','#e5d5b8','#dfb08b'], ['#9a754e','#576b62','#a66f4f'], ['#706299','#c4cddd','#d6a17e'], ['#ae6b69','#3d3a50','#bc886a'], ['#3c6b92','#e8e0d3','#e4b58e'], ['#68754c','#695c75','#a97555'] ];
+  const colors = palettes[Math.max(0,Math.min(7,Number(variant)||0))];
+  art = art.replaceAll('#637caf',colors[0]).replaceAll('#dddcd3',colors[1]).replaceAll('#c99570',colors[2]);
+  return art;
 }
 document.querySelectorAll('[data-avatar]').forEach(node => node.innerHTML = avatarArt(node.dataset.avatar));
 let peerGender = null;
+let peerAvatar = 0;
 let creds = null;
 let peerName = '';
 let peerOnline = false, peerTyping = false;
@@ -256,7 +263,10 @@ $('moreBtn').onclick = (e) => {
 /* ---------- Join ---------- */
 function doJoin(onDone) {
   socket.emit('join', { ...creds, mood: myMood }, (res) => {
-    if (res.error) return onDone(res.error);
+    if (res.error) {
+      if (res.error.includes('sign in')) { sessionStorage.removeItem('accountToken'); accountToken=''; currentAccount=null; creds=null; $('chat').classList.add('hidden'); $('join').classList.add('hidden'); $('auth').classList.remove('hidden'); $('authError').textContent=res.error; }
+      return onDone(res.error);
+    }
     Object.values(items).forEach(it => clearTimeout(it.vanishTimer));
     $('msgs').innerHTML = '';
     Object.keys(items).forEach((k) => delete items[k]);
@@ -264,6 +274,7 @@ function doJoin(onDone) {
     peerName = res.peer || (other && other.name) || '';
     peerOnline = !!res.peer;
     peerGender = res.peerGender || null;
+    peerAvatar = res.peerAvatar || 0;
     updatePeerMood(res.peerMood || '');
     res.history.forEach(render);
     if (!res.game) { gameState = null; activeGame = null; $('gameStage').classList.add('hidden'); }
@@ -282,9 +293,8 @@ function doJoin(onDone) {
 
 $('joinForm').onsubmit = (e) => {
   e.preventDefault();
-  const gender = document.querySelector('input[name=gender]:checked')?.value;
-  if (!gender) return;
-  creds = { name: $('name').value.trim(), room: $('room').value.trim(), cid, gender };
+  if (!currentAccount) return;
+  creds = { room: $('room').value.trim(), token: accountToken, cid, gender: currentAccount.gender, avatar: currentAccount.avatar, name: currentAccount.name };
   $('err').textContent = '';
   doJoin((err, roomWeather) => {
     if (err) { creds = null; $('err').textContent = err; return; }
@@ -302,15 +312,15 @@ socket.on('disconnect', () => { peerOnline = false; peerTyping = false; updateHe
 /* ---------- Header / Presence / Mood / Synced Weather ---------- */
 function updateHeader(reconnecting) {
   $('peerName').textContent = peerName || 'Waiting for friend…';
-  $('avatar').innerHTML = avatarArt(peerGender);
-  $('myPortrait').innerHTML = avatarArt(creds?.gender);
-  $('peerPortrait').innerHTML = avatarArt(peerGender);
+  $('avatar').innerHTML = avatarArt(peerGender, peerAvatar);
+  $('myPortrait').innerHTML = avatarArt(creds?.gender, creds?.avatar);
+  $('peerPortrait').innerHTML = avatarArt(peerGender, peerAvatar);
   $('myDisplayName').textContent = creds?.name || 'You';
   $('friendDisplayName').textContent = peerName || 'Friend';
   const connected = socket.connected && peerOnline && !reconnecting;
   $('duoConnection').classList.toggle('connected', connected);
   $('connectionLabel').textContent = !socket.connected ? 'Reconnecting…' : connected ? 'Connected' : 'Waiting for friend';
-  $('friendPresence').textContent = connected ? 'Online · অনলাইন' : peerName ? 'Offline · অফলাইন' : 'Waiting…';
+  $('friendPresence').textContent = connected ? 'Online' : peerName ? 'Offline' : 'Waiting…';
   const s = $('status');
   s.textContent = reconnecting ? 'Reconnecting…' : peerTyping ? 'typing…' : peerOnline ? 'Online' : 'Offline';
   s.className = peerOnline && !reconnecting ? 'on' : 'off';
@@ -329,10 +339,11 @@ function updatePeerMood(mood) {
   }
 }
 
-socket.on('presence', ({ online, name, mood, gender }) => {
+socket.on('presence', ({ online, name, mood, gender, avatar }) => {
   peerOnline = online;
   if (name) peerName = name;
   if (gender) peerGender = gender;
+  if (avatar !== undefined) peerAvatar = avatar;
   if (mood !== undefined) updatePeerMood(mood);
   if (!online) { peerTyping = false; updatePeerMood(''); }
   updateHeader();
@@ -789,3 +800,53 @@ function beep(freq = 880) {
     o.start(); o.stop(audio.currentTime + 0.25);
   } catch (e) {}
 }
+
+/* Account entry and the sixteen original avatar colorways. */
+let authMode = 'login', selectedGender = 'male', selectedAvatar = 0;
+function gallery() {
+  $('avatarGallery').replaceChildren();
+  for (let i=0; i<8; i++) {
+    const button = el('button','avatar-option'); button.type = 'button';
+    button.innerHTML = avatarArt(selectedGender,i);
+    button.setAttribute('aria-label', `${selectedGender} avatar ${i+1}`);
+    button.setAttribute('aria-pressed', String(i === selectedAvatar));
+    button.onclick = () => { selectedAvatar=i; gallery(); };
+    $('avatarGallery').append(button);
+  }
+  $('maleAvatars').setAttribute('aria-pressed',String(selectedGender==='male'));
+  $('femaleAvatars').setAttribute('aria-pressed',String(selectedGender==='female'));
+}
+function setAuthMode(mode) {
+  authMode=mode; $('registerFields').classList.toggle('hidden',mode==='login');
+  $('authSubmit').textContent=mode==='login'?'Sign in':'Create account';
+  $('password').autocomplete=mode==='login'?'current-password':'new-password';
+  $('loginTab').classList.toggle('primary-action',mode==='login');
+  $('registerTab').classList.toggle('primary-action',mode==='register');
+  $('authError').textContent='';
+}
+function enterAccount(user) {
+  currentAccount=user; cid=user.id;
+  $('name').value=user.name; $('name').readOnly=true;
+  $('auth').classList.add('hidden'); $('join').classList.remove('hidden');
+  $('password').value='';
+}
+$('loginTab').onclick=()=>setAuthMode('login'); $('registerTab').onclick=()=>setAuthMode('register');
+$('maleAvatars').onclick=()=>{selectedGender='male';gallery();};
+$('femaleAvatars').onclick=()=>{selectedGender='female';gallery();};
+$('authForm').onsubmit=e=>{
+  e.preventDefault();
+  if (!socket.connected) { $('authError').textContent='Connecting. Please try again shortly.'; return; }
+  $('authSubmit').disabled=true; $('authError').textContent='';
+  socket.timeout(15000).emit('account-auth',{mode:authMode,username:$('username').value,password:$('password').value,name:$('accountName').value,gender:selectedGender,avatar:selectedAvatar},(err,res)=>{
+    $('authSubmit').disabled=false;
+    if(err || res?.error) { $('authError').textContent=res?.error || 'Request timed out. Please try again.';return; }
+    accountToken=res.token;sessionStorage.setItem('accountToken',accountToken);enterAccount(res.user);
+  });
+};
+$('logoutBtn').onclick=()=>{sessionStorage.removeItem('accountToken');socket.emit('account-logout',accountToken);location.reload();};
+socket.on('connect',()=>{
+  if(accountToken && !currentAccount) socket.emit('account-resume',accountToken,res=>{
+    if(res.user) enterAccount(res.user);else { accountToken='';sessionStorage.removeItem('accountToken'); }
+  });
+});
+gallery();
